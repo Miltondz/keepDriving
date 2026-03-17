@@ -2,7 +2,7 @@
 
 A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame-ce**. Experience a procedurally generated journey where resource management, random encounters, and atmospheric driving meet.
 
-![Game Preview](assets/ui/tests/hud_radar_test.png)
+![Game Preview](assets/preview.png)
 
 ## 🌟 Key Features
 
