@@ -44,17 +44,17 @@ class HUD:
         self.bg_img = None
         self.upper_img = None
         self.road_img = None
+        self.player_sprite = None
         self.road_scroll = 0.0
         self._build_bg()
 
     def _build_bg(self):
         """Load dash_inferior.png, scale proportionally to 90px high,
-        centre it on a 640x90 black canvas."""
+        centre it on a 640x90 canvas with alpha."""
         src_path = os.path.join("assets", "ui", "dash_inferior.png")
-        bg = pygame.Surface((W, DASH_H))
-        bg.fill((0, 0, 0))
+        bg = pygame.Surface((W, DASH_H), pygame.SRCALPHA)
         if os.path.exists(src_path):
-            src = pygame.image.load(src_path).convert()
+            src = pygame.image.load(src_path).convert_alpha()
             sw, sh = src.get_size()
             target_w = int(sw / sh * DASH_H)
             offset   = (W - target_w) // 2
@@ -76,6 +76,15 @@ class HUD:
         else:
             self.road_img = None
 
+        # Load player sprite for interior view
+        p_path = os.path.join("assets", "sprites", "portraits", "agent.png")
+        if os.path.exists(p_path):
+            p_src = pygame.image.load(p_path).convert_alpha()
+            # It's huge, scale to seat size (approx 24x24)
+            self.player_sprite = pygame.transform.smoothscale(p_src, (24, 24))
+        else:
+            self.player_sprite = None
+
     def update_fuel(self, **_):    pass
     def update_sanity(self, **_):  pass
 
@@ -94,9 +103,12 @@ class HUD:
     def render(self, surface, music_manager=None):
         my_surface = pygame.Surface((W, DASH_H))
         
-        # ── ROAD SECTION (Now rendered BEFORE dashboard background for 'behind' effect) ──────────────────
-        rx, ry = 110, 75
-        rw, rh = 370, 13
+        # ── ROAD SECTION (Behind dashboard gap) ──────────────────────────────
+        rx, ry = 110, 67 # Raised ry higher to align perfectly behind the gap
+        rw, rh = 370, 13 # road height. rw will be 380
+        
+        # Dashboard gap starts near x=110 and ends near x=490 -> rw = 380
+        rw = 370
         
         # Draw road scrolling
         if self.road_img:
@@ -105,7 +117,23 @@ class HUD:
             for ox in range(int(start_x), rw, tw):
                 my_surface.blit(self.road_img, (rx + ox, ry))
         else:
-            pygame.draw.rect(my_surface, (30, 30, 35), (rx, ry, rw, rh))
+            # Procedural asphalt road with moving dashed lanes
+            pygame.draw.rect(my_surface, (25, 25, 30), (rx, ry, rw, rh))
+            pygame.draw.rect(my_surface, (15, 15, 20), (rx, ry, rw, rh), 1)
+            
+            # Moving dashes
+            dash_w = 20
+            dash_gap = 15
+            cycle = dash_w + dash_gap
+            offset = -(self.road_scroll % cycle)
+            
+            cy = ry + rh // 2
+            for px in range(int(offset), rw, cycle):
+                if px + dash_w > 0:
+                    dx = max(0, px)
+                    dw = min(dash_w, px + dash_w - dx)
+                    if dx + dw <= rw:
+                        pygame.draw.rect(my_surface, (200, 200, 100), (rx + dx, cy - 1, dw, 2))
 
         # ── RADAR ICONS (World Events) ─────────────────────────────────────
         if self.world_map and self.world_map.is_road:
@@ -133,6 +161,25 @@ class HUD:
         # Note: If dash_inferior.png is fully opaque, we still blit it. 
         # If it has a central gap, the road will show through.
         my_surface.blit(self.bg_img, (0, 0))
+        
+        # ── PLAYER ICON ON RADAR ───────────────────────────────────────────
+        pygame.draw.rect(my_surface, (100, 200, 255), (rx + 4, ry + 3, 10, 6))
+
+        # ── TEXT LABELS (Left and Right of the Road Gap) ───────────────────
+        if self.world_map and self.world_map.is_road:
+            node = self.world_map.current_node
+            dist_to_next = max(0.0, node.km_per_encounter - node.distance_since_last)
+            next_km_str = f"NEXT POI: {dist_to_next:.1f} KM"
+            driven_km_str = f"DRIVEN: {node.km_driven:.1f} KM"
+        else:
+            next_km_str = "NEXT POI: --"
+            driven_km_str = "DRIVEN: --"
+            
+        txt_l = self.font_tiny.render(driven_km_str, True, (120, 130, 140))
+        my_surface.blit(txt_l, (20, ry + 2))
+        
+        txt_r = self.font_tiny.render(next_km_str, True, (120, 130, 140))
+        my_surface.blit(txt_r, (495, ry + 2))
 
         sanity_pct = self.player.sanity / MAX_SANITY
         speed_val  = int(self.car_manager.car.speed)
@@ -141,30 +188,32 @@ class HUD:
         if self.upper_img:
             surface.blit(self.upper_img, (0, 0))
             
-            # ── UPPER HUD: AVATARS (Left section approx x=30-150) ───────────────────
-            # Draw placeholder avatar frame
-            pygame.draw.rect(surface, (30, 35, 45), (42, 14, 42, 42))
-            pygame.draw.rect(surface, (60, 70, 90), (42, 14, 42, 42), 1)
-            name_txt = self.font_tiny.render("PLAYER", True, (150, 160, 180))
-            surface.blit(name_txt, (45, 58))
+            # ── UPPER HUD: PLAYER AVATAR (In-Seat) ──────────────────────────
+            # Render player sprite in the front passenger seat (delantero superior)
+            # Area in 640x90 asset is approx (115, 12, 24, 24)
+            if self.player_sprite:
+                surface.blit(self.player_sprite, (115, 12))
+            else:
+                # Fallback if image fails
+                pygame.draw.rect(surface, (100, 150, 200), (115, 12, 24, 24), 2)
 
-            # ── UPPER HUD: DIALOGUE / DESC (Central/Right section approx x=180-600) ──
-            # Mock dialogue for now
+            # ── UPPER HUD: DIALOGUE / DESC ──────────────────────────────────
+            # SITUATION REPORT: Central-Top
             diag_title = self.font_bold.render("SITUATION REPORT", True, (200, 210, 220))
-            surface.blit(diag_title, (180, 15))
+            surface.blit(diag_title, (320 - diag_title.get_width() // 2, 5))
             
-            desc_dummy = "Speeding detected. Scanning frequencies for police activity..." if speed_val > 100 else "Route stable. Maintaining cruise speed."
+            # DESCRIPTION: Central-Bottom
+            desc_dummy = "Scanning frequencies..." if speed_val > 100 else "Route stable. Maintaining cruise speed."
             desc_txt = self.font_tiny.render(desc_dummy, True, (100, 110, 120))
-            surface.blit(desc_txt, (180, 32))
+            surface.blit(desc_txt, (320 - desc_txt.get_width() // 2, 68))
 
-            # Optional: Add context text to the black panel on the right (approx x=420)
+            # ── UPPER HUD: SYSTEM INFO (Left Panel) ─────────────────────────
             info_txt = self.font_lcd.render("REAR VIEW", True, (100, 100, 120))
-            surface.blit(info_txt, (450, 20))
+            surface.blit(info_txt, (15, 15))
             
-            # Show car condition in details
             cond_str = f"SYSTEMS: {int(self.car_manager.condition)}%"
             cond_txt = self.font_tiny.render(cond_str, True, (80, 80, 90))
-            surface.blit(cond_txt, (450, 45))
+            surface.blit(cond_txt, (15, 35))
 
         # ENERGY: adjusted based on test27
         ex, ey = 98, 23
@@ -199,7 +248,8 @@ class HUD:
 
         # Speed: bottom-right of LCD
         spd_str = f"{speed_val:03d}"
-        spd_txt = self._font_digital.render(spd_str, True, (120, 255, 120))
+        spd_col = (255, 60, 60) if speed_val > 100 else (120, 255, 120)
+        spd_txt = self._font_digital.render(spd_str, True, spd_col)
         kmh_txt = self.font_tiny.render("KM/H", True, (60, 170, 60))
         sx2 = lx + lw - max(spd_txt.get_width(), kmh_txt.get_width()) - 8
         my_surface.blit(kmh_txt, (sx2, ly + 21)) # Lowered from 18 to 21

@@ -62,25 +62,22 @@ class ParallaxBackground:
         self._load_external_assets()
 
     def _load_external_assets(self):
-        """Loads parallax layer strips. All are 75px tall, tiled horizontally.
-        
-        Stack alignment (strips are 75px, stack from y=15 to y=240=ROAD_Y):
-          desert_road_3 (sky,      75px) → y=15   (bottom edge y=90)
-          desert_road_2 (mountains,75px) → y=90   (bottom edge y=165)
-          desert_road_1 (road,     75px) → y=165  (bottom edge y=240 = ROAD_Y)
-        
+        """Loads parallax layer strips from sprites/road/.
+
+        Only desert_road_*.png are proper 75px parallax strips.
+        Stack alignment:
+          desert_road_3 (sky,       75px) → y=15
+          desert_road_2 (mountains, 75px) → y=90
+          desert_road_1 (road,      75px) → y=165
         """
         self.layers = []
         self.layer_speeds = [1.0, 0.25, 0.05]   # [road, mountains, sky]
-        # Restaurada alineación manual perfecta:
-        # Layer 1 (Road) en y=111
-        # Layer 2 (Mountains) en y=115
-        # Layer 3 (Sky) en y=115
         self.layer_ys = [111, 115, 115]
 
+        road_dir = os.path.join(SPRITES_DIR, "road")
         for i in range(1, 4):
             fn = f"{self.biome}_road_{i}.png"
-            path = os.path.join(SPRITES_DIR, fn)
+            path = os.path.join(road_dir, fn)
             if os.path.exists(path):
                 try:
                     img = pygame.image.load(path).convert_alpha()
@@ -90,7 +87,7 @@ class ParallaxBackground:
                     print(f"❌ Error loading {fn}: {e}")
             else:
                 print(f"⚠️ Not found: {path}")
-        
+
         if not self.layers:
             print(f"⚠️ NO LAYERS LOADED for biome '{self.biome}'")
 
@@ -178,6 +175,24 @@ class ParallaxBackground:
                     pygame.draw.polygon(surface, col, pts)
 
     def _generate_detailed_clouds(self):
+        """Load fx_cloud.png sprite, or fall back to procedural puffs."""
+        self.cloud_surfs = []
+        cloud_path = os.path.join(SPRITES_DIR, "fx", "fx_cloud.png")
+        if os.path.exists(cloud_path):
+            try:
+                base = pygame.image.load(cloud_path).convert_alpha()
+                # Use 3 instances at different scales for variety
+                for scale in [1.0, 0.75, 1.2]:
+                    w = int(base.get_width() * scale)
+                    h = int(base.get_height() * scale)
+                    self.cloud_surfs.append(pygame.transform.scale(base, (w, h)))
+                # Fill to 5 with more copies
+                self.cloud_surfs.append(pygame.transform.scale(base, (int(base.get_width() * 0.9), int(base.get_height() * 0.9))))
+                self.cloud_surfs.append(pygame.transform.scale(base, (int(base.get_width() * 1.1), int(base.get_height() * 0.85))))
+                return
+            except Exception as e:
+                print(f"Could not load fx_cloud: {e}")
+        # Procedural fallback
         for _ in range(5):
             cw, ch = random.randint(100, 220), random.randint(40, 80)
             cs = pygame.Surface((cw, ch), pygame.SRCALPHA)
@@ -206,9 +221,11 @@ class ParallaxBackground:
 
     def _generate_detailed_car(self):
         s = self.car_cache
-        s.fill((0, 0, 0, 0)) # Clear for transparency
-        # Try to load high-fidelity van sprite first
-        path = os.path.join(SPRITES_DIR, "v_van.png")
+        s.fill((0, 0, 0, 0))
+        # Try to load van sprite from vehicles/ subfolder
+        path = os.path.join(SPRITES_DIR, "vehicles", "v_van.png")
+        if not os.path.exists(path):
+            path = os.path.join(SPRITES_DIR, "v_van.png")  # legacy fallback
         if os.path.exists(path):
             try:
                 img = pygame.image.load(path).convert_alpha()
@@ -278,10 +295,9 @@ class ParallaxBackground:
             pass
 
 
-        # 3. Procedural clouds only if no external sky
-        if not self.layers:
-            for i, cs in enumerate(self.cloud_surfs):
-                cx = (W // 4 + i * 200 - self.scroll_x * 0.05) % (W + 300) - 150
-                cy = 20 + i * 15 + math.sin(pygame.time.get_ticks()*0.001 + i) * 6
-                surface.blit(cs, (cx, cy))
-
+        # 3. Clouds (always drawn, over sky — shown when no external layers or semi-transparent)
+        for i, cs in enumerate(self.cloud_surfs):
+            cx = (W // 4 + i * 200 - self.scroll_x * 0.03) % (W + cs.get_width() + 100) - cs.get_width()
+            cy = 18 + i * 12 + math.sin(pygame.time.get_ticks() * 0.0007 + i) * 5
+            if cy + cs.get_height() < ROAD_Y:  # only draw if above road
+                surface.blit(cs, (int(cx), int(cy)))

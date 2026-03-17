@@ -16,22 +16,29 @@ class TrafficVehicle:
         self._load_sprite()
         
     def _load_sprite(self):
-        path = os.path.join(SPRITES_DIR, f"v_{self.type}.png")
+        # Sprites live in the vehicles/ subfolder
+        path = os.path.join(SPRITES_DIR, "vehicles", f"v_{self.type}.png")
+        if not os.path.exists(path):
+            # Fallback: sprites root (legacy)
+            path = os.path.join(SPRITES_DIR, f"v_{self.type}.png")
         if os.path.exists(path):
             img = pygame.image.load(path).convert_alpha()
-            # 30% Smaller scale targets
+            # Scale targets
             if self.type == "moped": tw = 49
             elif self.type in ["truck", "dumptruck"]: tw = 161
-            else: tw = 102 # Sedan, Wagon, etc.
-            
+            else: tw = 102  # sedan, wagon, taxi, police, van…
+
             th = int(img.get_height() * (tw / img.get_width()))
-            self.sprite = pygame.transform.scale(img, (tw, th))
-            
-            # Base sprites face RIGHT. Flip if moving LEFT (towards us).
-            if self.direction == -1:
-                self.sprite = pygame.transform.flip(self.sprite, True, False)
-            # If same direction traffic is moving FASTER than player, it might look like it's reversing
-            # but usually they face forward.
+            scaled = pygame.transform.scale(img, (tw, th))
+
+            # ── Direction / Flip logic ─────────────────────────────────────
+            # Base sprites natively face LEFT.
+            # Vehicles travelling in the same direction (1) face RIGHT, so they must be flipped.
+            # Vehicles travelling in the opposite direction (-1) face LEFT, so NO FLIP.
+            if self.direction == 1:
+                scaled = pygame.transform.flip(scaled, True, False)
+
+            self.sprite = scaled
 
     def update(self, dt, player_speed):
         # Relative speed

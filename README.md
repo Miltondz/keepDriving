@@ -8,13 +8,13 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 
 ### 🛤️ Dynamic World & Driving
 *   **Procedural Routes:** Every run generates a unique set of road segments and settlements across different biomes (Desert, Forest, Mountain, etc.).
-*   **High-Speed Physics:** Accelerate up to **170 km/h**. But beware: driving over 100 km/h increases the risk of **Police Encounters**.
-*   **Dynamic Backgrounds:** Multi-layered parallax scrolling that reacts to your speed and the current biome.
+*   **High-Speed Mechanics & Consequences:** Accelerate up to **170 km/h** with torque-based acceleration, but beware: driving over 100 km/h exponentially increases the risk of **fatal Police Encounters** and drastically raises **real-time fuel consumption**.
+*   **Dynamic Backgrounds:** Multi-layered parallax scrolling that reacts to your speed, biome, and correctly mirrored oncoming traffic logic.
 
 ### 🎮 Advanced HUD & UI
-*   **Animated Dashboard:** A retro-styled lower HUD with a scrolling road and a **Radar System** that shows upcoming events (Hitchhikers, Gas Stations, Hazards) in real-time.
-*   **Status Systems:** Track Car Condition, Fuel levels, and Player Sanity via integrated LCD panels and analog-style gauges.
-*   **Multi-View System:** Toggle between **Interior view (F1)**, **Map view (F2)**, and **Road view (F3)**.
+*   **Animated Dashboard:** A retro-styled lower HUD with transparent cutouts displaying a procedural scrolling road, along with a **Radar Array** that shows your vehicle's position, total distance driven, km to the next Point of Interest, and color-coded event markers.
+*   **Status Systems:** Track Car Condition, dynamic analog Fuel needles, Player Sanity, and a **dynamic Speedometer** that turns red when speeding.
+*   **Multi-View System:** Toggle between **Interior view (F1)**, **Map view (F2)**, and **Road view (F3)**, now featuring appropriate character seating avatars.
 
 ### 🎭 Encounters & Survival
 *   **Narrative Dialogue:** Interactive encounters with hitchhikers, police, and strange roadside events.

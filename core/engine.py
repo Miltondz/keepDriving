@@ -239,9 +239,9 @@ class KeepDrivingEngine:
             # Continuous input
             keys = pygame.key.get_pressed()
             if keys[pygame.K_w] or keys[pygame.K_UP]:
-                self.car.accelerate()
+                self.car.accelerate(dt)
             if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-                self.car.brake()
+                self.car.brake(dt)
 
             # Physics + resources
             self.car.update(dt)
@@ -290,6 +290,16 @@ class KeepDrivingEngine:
             if self.player.sanity < 25 and random.random() < 0.005:
                 self._trigger_encounter("fatigue_blurred")
 
+            # Speeding police risk (only when above 100km/h)
+            if self.car.speed > 100 and self.state == GameState.TRAVEL and getattr(self.enc_ui, 'is_visible', False) == False:
+                # Highest speed (170) = +70. Chance ~ 0.001 per frame (6% per second)
+                over_speed = self.car.speed - 100
+                if random.random() < over_speed * 0.000015:
+                    if random.random() < 0.10:
+                        self._trigger_encounter("speeding_busted")
+                    else:
+                        self._trigger_encounter("speeding_ticket")
+
             if self.world_map.at_end:
                 self.state = GameState.WIN
 
@@ -319,6 +329,9 @@ class KeepDrivingEngine:
                     result['_note'] = f"Picked up {hh.name}"
 
         self.enc_ui.show_outcome(result, positive)
+        
+        if result.get('game_over'):
+            self.state = GameState.GAME_OVER
 
     # ── Settlement flow ───────────────────────────────────────────────────
     def _enter_settlement(self, settlement: Settlement):

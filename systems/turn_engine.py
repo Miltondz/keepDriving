@@ -299,6 +299,24 @@ ENCOUNTER_DATABASE = {
             EncounterOption("Drink Coffee [item]", "The only way.", {'sanity': +20}, item_required="coffee"),
         ], tags=['fatigue'], difficulty=4
     ),
+
+    "speeding_ticket": Encounter(
+        key="speeding_ticket", title="FLASHING LIGHTS",
+        description="A siren wails behind you. You were going way over the limit.",
+        flavour="There's no talking your way out of this one.",
+        options=[
+            EncounterOption("Accept the Fine", "It hurts, but you stay free.", {'money': -50, 'sanity': -10}, icon_color=(220, 200, 80)),
+        ], tags=['police_speed'], difficulty=2
+    ),
+
+    "speeding_busted": Encounter(
+        key="speeding_busted", title="ROADBLOCK AHEAD",
+        description="Multiple squad cars block the road. They're drawing weapons.",
+        flavour="You went too fast, for too long.",
+        options=[
+            EncounterOption("Surrender", "The journey ends here.", {'game_over': True, 'sanity': -50}, icon_color=(255, 60, 60)),
+        ], tags=['police_speed_fatal'], difficulty=5
+    ),
 }
 
 

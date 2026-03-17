@@ -4,19 +4,23 @@ import math
 class Car:
     def __init__(self):
         self.speed = 0
-        self.max_speed = 100
-        self.acceleration = 20
+        self.max_speed = 170
+        self.acceleration = 8
         self.braking = 30
         self.friction = 5
         self.steering_angle = 0
         
-    def accelerate(self):
-        """Increase speed."""
-        self.speed = min(self.speed + self.acceleration * 0.1, self.max_speed)
+    def accelerate(self, dt=0.016):
+        """Increase speed with initial resistance."""
+        eff_acc = self.acceleration
+        if self.speed < 30:
+            eff_acc *= 0.4  # Resistance at low speeds
+            
+        self.speed = min(self.speed + eff_acc * dt * 10, self.max_speed)
         
-    def brake(self):
+    def brake(self, dt=0.016):
         """Decrease speed."""
-        self.speed = max(self.speed - self.braking * 0.1, 0)
+        self.speed = max(self.speed - self.braking * dt * 10, 0)
         
     def steer(self, direction):
         """Steer left (-1) or right (1)."""

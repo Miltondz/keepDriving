@@ -14,7 +14,7 @@ class CarManager:
         # Consume fuel based on distance traveled
         if self.car.speed > 0:
             km_this_frame = (self.car.speed / 3600.0) * dt
-            fuel_consumption = km_this_frame / 5.0 # 1 unit per 5 km (GDD 5.1)
+            fuel_consumption = km_this_frame * 1.5 # Consumes 1.5 units per km traveled
             self.fuel = max(0.0, self.fuel - fuel_consumption)
             events.emit(EVENTS['FUEL_CHANGED'])
             
