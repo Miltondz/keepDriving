@@ -1,0 +1,32 @@
+"""Car resource management."""
+from core.config import *
+from core.events import events, EVENTS
+
+class CarManager:
+    def __init__(self, player, car):
+        self.player = player
+        self.car = car
+        self.fuel = MAX_FUEL
+        self.condition = 100
+        
+    def update(self, dt):
+        """Update car resources."""
+        # Consume fuel based on distance traveled
+        if self.car.speed > 0:
+            km_this_frame = (self.car.speed / 3600.0) * dt
+            fuel_consumption = km_this_frame / 5.0 # 1 unit per 5 km (GDD 5.1)
+            self.fuel = max(0.0, self.fuel - fuel_consumption)
+            events.emit(EVENTS['FUEL_CHANGED'])
+            
+    def spend_fuel(self, amount):
+        """Deduct fuel."""
+        if self.fuel >= amount:
+            self.fuel -= amount
+            events.emit(EVENTS['FUEL_CHANGED'])
+            return True
+        return False
+
+    def refuel(self, amount):
+        """Add fuel up to max."""
+        self.fuel = min(MAX_FUEL, self.fuel + amount)
+        events.emit(EVENTS['FUEL_CHANGED'])
