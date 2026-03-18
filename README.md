@@ -64,6 +64,7 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 - [x] High-speed police encounter logic.
 - [x] Dynamic radar for HUD road.
 - [x] Upper HUD dialogue & avatar system.
+- [x] Oncoming traffic scaling & directional logic.
 - [ ] Advanced inventory system.
 - [ ] Weather-specific handling physics.
 

@@ -2,6 +2,12 @@
 High-Fidelity Dashboard Interface — Keep Driving.
 Uses dash_inferior.png scaled proportionally (497x90) centred in a 640x90
 black strip. Left/right black bars are 71px each.
+
+*** GUÍA DE MODDING (MODIFICACIÓN) ***
+- Este archivo (hud.py) controla cómo se dibujan los elementos de la interfaz en la pantalla.
+- Si ves un método como `pygame.draw.rect(my_surface, (R, G, B), (X, Y, Ancho, Alto))`
+  puedes cambiar los valores (R,G,B) para alterar colores, o X e Y para mover el elemento.
+- Las imágenes base (dash_inferior, hud_road) se cargan en la función `_build_bg()`.
 """
 import pygame
 import math
@@ -77,11 +83,11 @@ class HUD:
             self.road_img = None
 
         # Load player sprite for interior view
-        p_path = os.path.join("assets", "sprites", "portraits", "agent.png")
+        p_path = os.path.join("assets", "sprites", "portraits", "kid.png")
         if os.path.exists(p_path):
             p_src = pygame.image.load(p_path).convert_alpha()
-            # It's huge, scale to seat size (approx 24x24)
-            self.player_sprite = pygame.transform.smoothscale(p_src, (24, 24))
+            # It's huge, scale to seat size (approx 38x38)
+            self.player_sprite = pygame.transform.smoothscale(p_src, (38, 38))
         else:
             self.player_sprite = None
 
@@ -92,11 +98,13 @@ class HUD:
         """Update road scroll and pulse animations."""
         self._pulse = (self._pulse + dt * 4) % (2 * math.pi)
         
-        # Scroll road based on car speed
+        # Scroll road based on car speed / Desplazamiento de carretera basado en la velocidad
         if self.car_manager:
             speed = self.car_manager.car.speed # km/h
-            # Visual speed scaling: 100km/h = ~120px/sec scroll
-            self.road_scroll += speed * dt * 1.2
+            # COMENTARIO PARA MODIFICAR: 
+            # Multiplicador de velocidad de scroll visual. 
+            # Reducido de 8.0 a 3.0 para que la velocidad del suelo sea más realista.
+            self.road_scroll += speed * dt * 3.0
             if self.road_img:
                 self.road_scroll %= self.road_img.get_width()
 
@@ -104,13 +112,14 @@ class HUD:
         my_surface = pygame.Surface((W, DASH_H))
         
         # ── ROAD SECTION (Behind dashboard gap) ──────────────────────────────
-        rx, ry = 110, 67 # Raised ry higher to align perfectly behind the gap
-        rw, rh = 370, 13 # road height. rw will be 380
+        # COMENTARIO PARA MODIFICAR: 
+        # rx y ry controlan donde comienza a dibujarse la carretera de fondo.
+        # ry=67 está subido para que no se superponga con el marco del dashboard.
+        # rw es el ancho (pixels), rh el alto (pixels).
+        rx, ry = 110, 67 
+        rw, rh = 370, 13
         
-        # Dashboard gap starts near x=110 and ends near x=490 -> rw = 380
-        rw = 370
-        
-        # Draw road scrolling
+        # Draw road scrolling / Bucle para animar la carretera
         if self.road_img:
             tw = self.road_img.get_width()
             start_x = -(self.road_scroll % tw)
@@ -135,25 +144,32 @@ class HUD:
                     if dx + dw <= rw:
                         pygame.draw.rect(my_surface, (200, 200, 100), (rx + dx, cy - 1, dw, 2))
 
-        # ── RADAR ICONS (World Events) ─────────────────────────────────────
+        # ── RADAR ICONS (World Events) / EVENTOS DEL RADAR ──────────────────
+        # Aquí determinamos dónde dibujar los puntos de colores en la mini carretera.
+        # car_x representa la posición de tu ícono (el cuadrado azul). 
+        # Multiplicar `rw * 0.25` lo coloca exactamente a un 25% (un cuarto) de distancia desde la izquierda.
+        car_x = rx + int(rw * 0.25)
+        
         if self.world_map and self.world_map.is_road:
             node = self.world_map.current_node
-            radar_scale = rw / 5.0 # pixels per km
+            radar_scale = rw / 5.0 # pixels per km (Cambiar el 5.0 comprime o expande el radar)
             dist_to_next = node.km_per_encounter - node.distance_since_last
             for i, enc in enumerate(node.encounters_remaining):
                 dist = dist_to_next + i * node.km_per_encounter
-                if dist < 5.0:
-                    ex_pos = rx + int(dist * radar_scale)
-                    color = (200, 100, 255) # Hitchhiker
-                    if any(k in enc for k in ['fuel', 'gas', 'shop']): color = (255, 230, 100)
-                    elif any(k in enc for k in ['accident', 'flat', 'rock', 'tree']): color = (255, 80, 50)
-                    pygame.draw.circle(my_surface, color, (ex_pos, ry + 6), 3)
+                ex_pos = car_x + int(dist * radar_scale)
+                if rx <= ex_pos <= rx + rw:
+                    # COLORES PARA MODIFICAR: Aquí puedes cambiar de qué color es cada evento. (RGB)
+                    color = (200, 100, 255) # Por defecto: Hitchhiker (morado)
+                    if any(k in enc for k in ['fuel', 'gas', 'shop']): color = (255, 230, 100) # Amarillo (Gasolinera)
+                    elif any(k in enc for k in ['accident', 'flat', 'rock', 'tree']): color = (255, 80, 50) # Rojo (Peligros)
+                    pygame.draw.circle(my_surface, color, (ex_pos, ry + 6), 3) # ry+6 lo centra verticalmente en la vía
                     if dist < 0.2:
+                        # Halo blanco si estás muy cerca del evento
                         pygame.draw.circle(my_surface, (255, 255, 255), (ex_pos, ry + 6), 5, 1)
 
             dist_to_end = node.length_km - node.km_driven
-            if dist_to_end < 5.0:
-                sx_pos = rx + int(dist_to_end * radar_scale)
+            sx_pos = car_x + int(dist_to_end * radar_scale)
+            if rx <= sx_pos <= rx + rw:
                 pygame.draw.rect(my_surface, (255, 215, 70), (sx_pos - 2, ry + 1, 6, 11))
                 pygame.draw.rect(my_surface, (50, 40, 0), (sx_pos - 2, ry + 1, 6, 11), 1)
 
@@ -163,57 +179,48 @@ class HUD:
         my_surface.blit(self.bg_img, (0, 0))
         
         # ── PLAYER ICON ON RADAR ───────────────────────────────────────────
-        pygame.draw.rect(my_surface, (100, 200, 255), (rx + 4, ry + 3, 10, 6))
+        # COMENTARIO PARA MODIFICAR: El cuadrado azul es tu coche en la vista inferior.
+        # Está fijado a la posición (car_x). Color actual: (100, 200, 255) (Celeste). Ancho 10, Alto 6.
+        pygame.draw.rect(my_surface, (100, 200, 255), (car_x - 5, ry + 3, 10, 6))
 
-        # ── TEXT LABELS (Left and Right of the Road Gap) ───────────────────
         if self.world_map and self.world_map.is_road:
             node = self.world_map.current_node
             dist_to_next = max(0.0, node.km_per_encounter - node.distance_since_last)
-            next_km_str = f"NEXT POI: {dist_to_next:.1f} KM"
-            driven_km_str = f"DRIVEN: {node.km_driven:.1f} KM"
+            next_km_str = f"{dist_to_next:.1f} KM"
+            driven_km_str = f"{node.km_driven:.1f} KM"
         else:
-            next_km_str = "NEXT POI: --"
-            driven_km_str = "DRIVEN: --"
-            
-        txt_l = self.font_tiny.render(driven_km_str, True, (120, 130, 140))
-        my_surface.blit(txt_l, (20, ry + 2))
+            next_km_str = "--"
+            driven_km_str = "--"
+
+        # ── LOWER HUD: INFO TEXTS AL COSTADO DEL RADAR ──────────────────────
+        # COMENTARIO PARA MODIFICAR: 
+        # Aquí se imprimen los textos en las zonas negras laterales en el HUD inferior
+        # Textos ajustados 60px hacia arriba y el derecho movido 20px.
+        txt_l1 = self.font_tiny.render("DRIVEN:", True, (120, 130, 140))
+        txt_l2 = self.font_tiny.render(driven_km_str, True, (120, 130, 140))
+        my_surface.blit(txt_l1, (20, ry - 54))
+        my_surface.blit(txt_l2, (20, ry - 43))
         
-        txt_r = self.font_tiny.render(next_km_str, True, (120, 130, 140))
-        my_surface.blit(txt_r, (495, ry + 2))
+        txt_r1 = self.font_tiny.render("NEXT POI:", True, (120, 130, 140))
+        txt_r2 = self.font_tiny.render(next_km_str, True, (120, 130, 140))
+        # Desplazados 60px adicionales a la derecha (605 -> 665)
+        my_surface.blit(txt_r1, (580, ry - 54))
+        my_surface.blit(txt_r2, (580, ry - 43))
 
         sanity_pct = self.player.sanity / MAX_SANITY
         speed_val  = int(self.car_manager.car.speed)
 
-        # Render upper HUD if available
+        # Render upper HUD if available / Renderizado del panel superior
         if self.upper_img:
             surface.blit(self.upper_img, (0, 0))
             
-            # ── UPPER HUD: PLAYER AVATAR (In-Seat) ──────────────────────────
-            # Render player sprite in the front passenger seat (delantero superior)
-            # Area in 640x90 asset is approx (115, 12, 24, 24)
+            # ── UPPER HUD: PLAYER AVATAR (In-Seat) / AVATAR DEL CONDUCTOR ───
+            # COMENTARIO PARA MODIFICAR: 
+            # Cambia (120, 10) para mover el avatar de asiento a izquierda, derecha, etc.
             if self.player_sprite:
-                surface.blit(self.player_sprite, (115, 12))
+                surface.blit(self.player_sprite, (120, 10))
             else:
-                # Fallback if image fails
-                pygame.draw.rect(surface, (100, 150, 200), (115, 12, 24, 24), 2)
-
-            # ── UPPER HUD: DIALOGUE / DESC ──────────────────────────────────
-            # SITUATION REPORT: Central-Top
-            diag_title = self.font_bold.render("SITUATION REPORT", True, (200, 210, 220))
-            surface.blit(diag_title, (320 - diag_title.get_width() // 2, 5))
-            
-            # DESCRIPTION: Central-Bottom
-            desc_dummy = "Scanning frequencies..." if speed_val > 100 else "Route stable. Maintaining cruise speed."
-            desc_txt = self.font_tiny.render(desc_dummy, True, (100, 110, 120))
-            surface.blit(desc_txt, (320 - desc_txt.get_width() // 2, 68))
-
-            # ── UPPER HUD: SYSTEM INFO (Left Panel) ─────────────────────────
-            info_txt = self.font_lcd.render("REAR VIEW", True, (100, 100, 120))
-            surface.blit(info_txt, (15, 15))
-            
-            cond_str = f"SYSTEMS: {int(self.car_manager.condition)}%"
-            cond_txt = self.font_tiny.render(cond_str, True, (80, 80, 90))
-            surface.blit(cond_txt, (15, 35))
+                pygame.draw.rect(surface, (100, 150, 200), (120, 10, 38, 38), 2)
 
         # ENERGY: adjusted based on test27
         ex, ey = 98, 23
@@ -246,7 +253,11 @@ class HUD:
         loc_txt = self.font_tiny.render(loc_msg, True, (60, 170, 60))
         my_surface.blit(loc_txt, (lx + 4, ly + 26))
 
-        # Speed: bottom-right of LCD
+        # ── LCD: SPEED / TABLA DE VELOCIDAD ──────────────────────────────────
+        # COMENTARIO PARA MODIFICAR: 
+        # Esta sección formatea y colorea los kilómetros por hora.
+        # Si la velocidad es > 100 pasa a rojo intenso (255, 60, 60), de normal verde claro (120, 255, 120).
+        # Modificar esos RGB para cambiar el aspecto. Modificar `ly+21` para ajustar la posición de altura.
         spd_str = f"{speed_val:03d}"
         spd_col = (255, 60, 60) if speed_val > 100 else (120, 255, 120)
         spd_txt = self._font_digital.render(spd_str, True, spd_col)
@@ -269,11 +280,15 @@ class HUD:
             by = cy + row     * (ch + cg_y)
             pygame.draw.rect(my_surface, col, (bx, by, cw, ch))
 
-        # GAS needle — pivot measured directly on 640x90 asset
+        # ── GAS NEEDLE / AGUJA DE COMBUSTIBLE ──────────────────────────────
+        # COMENTARIO PARA MODIFICAR: 
+        # Dibuja la aguja rotacional midiendo el centro 'pivot_x=523, pivot_y=64' del asset visual 640x90.
+        # El consumo dicta 'fuel_pct', moviendo el ángulo entre 'angle_start' y 'angle_end'.
+        # Color aguja: rojo oscurecido (230, 40, 40), de ancho 2. Color centro: negro (10, 10, 10).
         fuel_pct  = self.car_manager.fuel / 100.0
         pivot_x   = 523
         pivot_y   = 64
-        needle_r  = 18
+        needle_r  = 18 # Longitud de la aguja en píxeles.
 
         angle_start = math.pi * 1.17
         angle_end   = math.pi * 1.83
@@ -287,7 +302,8 @@ class HUD:
         # ── STATUS TEXT ──────────────────────────────────────────────────────
         st_txt = self.font_tiny.render("DRIVE" if speed_val > 0 else "IDLE",
                                        True, (160, 170, 180))
-        my_surface.blit(st_txt, (HUD_OFFSET_X + 4, DASH_H - 12))
+        # 60 pixels a la izquierda y 20 pixeles arriba de la original
+        my_surface.blit(st_txt, (HUD_OFFSET_X + 4 - 60, DASH_H - 12 - 20))
 
         if music_manager and music_manager.now_playing:
             track = music_manager.now_playing

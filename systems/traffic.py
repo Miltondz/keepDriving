@@ -32,10 +32,11 @@ class TrafficVehicle:
             scaled = pygame.transform.scale(img, (tw, th))
 
             # ── Direction / Flip logic ─────────────────────────────────────
-            # Base sprites natively face LEFT.
-            # Vehicles travelling in the same direction (1) face RIGHT, so they must be flipped.
-            # Vehicles travelling in the opposite direction (-1) face LEFT, so NO FLIP.
-            if self.direction == 1:
+            # Si el código original volteaba todos los autos que iban en nuestra dirección (1),
+            # significa que nativamente apuntaban hacia la DERECHA y los estábamos rompiendo,
+            # o apuntaban a la izquierda y nosotros también voltearemos los que vienen de frente (-1).
+            # Ahora: Los que vienen de frente (-1) se voltean. Los que van en nuestra vía (1) no se voltean.
+            if self.direction == -1:
                 scaled = pygame.transform.flip(scaled, True, False)
 
             self.sprite = scaled
@@ -47,7 +48,9 @@ class TrafficVehicle:
         else:
             rel_speed = player_speed + self.speed # Approaching speed
             
-        self.x -= rel_speed * dt * 10 
+        # El multiplicador original 10x era extremadamente rápido visualmente.
+        # Reducido a 2.5x para mantener una sensación jugable y reactiva sin que se teletransporten.
+        self.x -= rel_speed * dt * 2.5
         
     def render(self, surface):
         if self.sprite:

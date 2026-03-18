@@ -259,7 +259,10 @@ class ParallaxBackground:
             self._load_external_assets()
 
     def update(self, dt, speed, weather_state="sunny"):
-        self.scroll_x += speed * 60 * dt
+        # COMENTARIO PARA MODIFICAR: 
+        # Multiplicador global de velocidad del parallax (fondo del juego).
+        # Incrementado de 60 a 160 para que la velocidad del escenario coincida con la sensación de alta velocidad y el mini-radar.
+        self.scroll_x += speed * 160.0 * dt
     def render(self, surface, weather_state="sunny", time_of_day=0.5):
         day_factor = max(0, math.sin(time_of_day * math.pi))
 
