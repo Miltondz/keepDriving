@@ -19,44 +19,52 @@ class WorldGenerator:
         self.seed = seed
 
     def generate_run(self, total_target_km=1500):
-        """Generate a custom TEST RUN to showcase all interaction types."""
+        """Generate a custom TEST RUN to showcase mountain biome and frequent events."""
         route = []
-        
-        # 1. Very short road with a hitchhiker and a narrative event (police)
+
+        # 1. Mountain road with multiple encounters (testing MOUNTAIN biome)
         route.append(RoadSegment(
-            RoadType.DESERT,
-            length_km=15, 
-            test_encounters=['hitchhiker', 'police_check']
-        ))
-        
-        # 2. Complete Settlement (Hotel, Shop, Workshop, Recruit)
-        route.append(Settlement(
-            name="Testing Grounds Hub",
-            size=SettlementSize.CITY,
-            services=['fuel', 'repair', 'shop', 'rest', 'recruit']
-        ))
-        
-        # 3. Another short road with animals and another hitchhiker
-        route.append(RoadSegment(
-            RoadType.FOREST,
-            length_km=15,
-            test_encounters=['deer_crossing', 'hitchhiker']
+            RoadType.MOUNTAIN,
+            length_km=30,
+            test_encounters=[
+                'hitchhiker', 'rockslide', 'fog', 'altitude_trouble',
+                'fallen_tree', 'sharp_turn', 'wildlife_crossing'
+            ]
         ))
 
-        # 4. Small Town with limited services to test partial menus
+        # 2. Mountain settlement with services
         route.append(Settlement(
-            name="Sleepy Hollow",
+            name="Summit Ridge",
             size=SettlementSize.SMALL_TOWN,
+            services=['fuel', 'repair', 'rest']
+        ))
+
+        # 3. Another mountain road with more events
+        route.append(RoadSegment(
+            RoadType.MOUNTAIN,
+            length_km=25,
+            test_encounters=[
+                'brake_overheat', 'narrow_bridge', 'hitchhiker',
+                'scenic_view', 'fog'
+            ]
+        ))
+
+        # 4. Small mountain gas station
+        route.append(Settlement(
+            name="Eagle's Nest",
+            size=SettlementSize.GAS_STATION,
             services=['fuel', 'rest']
         ))
-        
-        # 5. Final long road to win
+
+        # 5. Final mountain stretch
         route.append(RoadSegment(
-            RoadType.HIGHWAY,
-            length_km=30,
-            test_encounters=['traffic_jam', 'flat_tire']
+            RoadType.MOUNTAIN,
+            length_km=20,
+            test_encounters=[
+                'altitude_trouble', 'rockslide', 'hitchhiker'
+            ]
         ))
-        
+
         return route
 
     def generate_segment(self, preferred_type=None):

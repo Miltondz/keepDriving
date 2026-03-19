@@ -13,6 +13,7 @@ TARGET_FPS = 60
 MAX_FUEL = 100
 MAX_SANITY = 100
 MAX_HITCHHIKERS = 3
+MAX_PASSENGERS = 4  # Total seats in vehicle: 1 front + 3 back
 ROAD_Y = 240 # Distance from top to road surface base
 
 # Colors (RGB)

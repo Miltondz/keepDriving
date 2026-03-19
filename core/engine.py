@@ -87,6 +87,8 @@ class KeepDrivingEngine:
 
         # Pending encounter key (from WorldMap.advance_km)
         self._pending_encounter = None
+        # Pending hitchhiker for preview
+        self._pending_hitchhiker = None
         # Settlement info
         self._current_settlement = None
         # Menu animation
@@ -113,7 +115,7 @@ class KeepDrivingEngine:
         self.music_mgr   = MusicManager()
         self.dialogue    = DialogueSystem()
         self.renderer    = GameRenderer()
-        self.hud         = HUD(self.player, self.car_manager, self.world_map)
+        self.hud         = HUD(self.player, self.car_manager, self.world_map, self.inventory)
         self.enc_ui      = EncounterUI()
         self.weather     = WeatherSystem()
         self.traffic     = TrafficManager()
@@ -195,15 +197,22 @@ class KeepDrivingEngine:
                     # R = enter shop / interaction
                     elif event.key == pygame.K_r or event.key == pygame.K_s:
                         self.shop_screen = ShopScreen(self._font_md, self._current_settlement.name)
-                        # Filter shop items based on settlement services
+                        # Filter shop items dynamically based on settlement services
                         filtered = []
-                        if 'fuel' in self._current_settlement.services:
-                            filtered.append(self.shop_screen.items[0])
-                        if 'repair' in self._current_settlement.services:
-                            filtered.append(self.shop_screen.items[1])
-                        if 'shop' in self._current_settlement.services:
-                            filtered.append(self.shop_screen.items[2])
-                        filtered.append(self.shop_screen.items[3]) # LEAVE
+                        services = self._current_settlement.services
+                        
+                        all_items = self.shop_screen.items
+                        for item in all_items:
+                            name = item["name"].upper()
+                            if "REFUEL" in name and 'fuel' in services:
+                                filtered.append(item)
+                            elif "REPAIR" in name and 'repair' in services:
+                                filtered.append(item)
+                            elif "SNACK" in name and 'shop' in services:
+                                filtered.append(item)
+                            elif "LEAVE" in name:
+                                filtered.append(item)
+                        
                         self.shop_screen.items = filtered
                         self.state = GameState.SHOP
 
@@ -229,11 +238,35 @@ class KeepDrivingEngine:
     # ── Update ────────────────────────────────────────────────────────────
     def _update(self, dt):
         self.time_of_day = (self.time_of_day + dt * 0.002) % 1.0
+        self.car_manager.update(dt) 
         self.music_mgr.update(dt)
         self.hud.update(dt)
         self.enc_ui.update(dt)
         self.weather.update(dt, self.player, self.current_biome)
         self.traffic.update(dt, self.car.speed)
+
+        if self.state == GameState.TRAVEL:
+            self._maybe_trigger_conversation(dt)
+
+    def _maybe_trigger_conversation(self, dt):
+        """Randomly trigger dialogue with hitchhikers."""
+        if self.dialogue.is_active(): return
+        
+        # 0.5% chance per second when moving
+        if self.car.speed > 10 and random.random() < 0.005:
+            # Filter None to avoid crash
+            passengers = [p for p in self.player.passengers.values() if p is not None]
+            if passengers:
+                p = random.choice(passengers)
+                story = p.get_next_story() 
+                from systems.dialogue_system import DialogueTree, DialogueLine
+                lines = []
+                for i, text in enumerate(story):
+                    next_id = i + 1 if i < len(story) - 1 else None
+                    lines.append(DialogueLine(p.name, text, next_id))
+                
+                tree = DialogueTree(lines)
+                self.dialogue.start(tree)
 
         if self.state == GameState.TRAVEL:
             # Continuous input
@@ -309,12 +342,17 @@ class KeepDrivingEngine:
         if not encounter:
             return
         # Special: hitchhiker encounter → use HH logic if no slots
-        if key == 'hitchhiker' and len(self.player.hitchhikers) >= 3:
+        if key == 'hitchhiker' and self.player.is_vehicle_full:
             events.emit(EVENTS['ENCOUNTER_END'])
             return
 
         options = self.turn_engine.get_available_options(self.inventory)
-        self.enc_ui.show(encounter, options)
+        # Get current hitchhiker for avatar display
+        self._pending_hitchhiker = None
+        if key == 'hitchhiker':
+            self._pending_hitchhiker = random_hitchhiker()
+            
+        self.enc_ui.show(encounter, options, self._pending_hitchhiker)
         self.state = GameState.ENCOUNTER
 
     def _resolve_encounter(self, option_index: int):
@@ -324,9 +362,10 @@ class KeepDrivingEngine:
         # Special: hitchhiker → actually add one
         if self.turn_engine.current_encounter is None:
             if 'sanity' in result and result.get('option', '').startswith('Pick'):
-                hh = random_hitchhiker()
-                if self.player.add_hitchhiker(hh):
+                hh = self._pending_hitchhiker or random_hitchhiker()
+                if self.player.add_passenger(hh):
                     result['_note'] = f"Picked up {hh.name}"
+                self._pending_hitchhiker = None
 
         self.enc_ui.show_outcome(result, positive)
         
@@ -344,9 +383,9 @@ class KeepDrivingEngine:
         self.state = GameState.TRAVEL
 
     def _recruit_hitchhiker(self):
-        if len(self.player.hitchhikers) < 3:
+        if not self.player.is_vehicle_full:
             hh = random_hitchhiker()
-            self.player.add_hitchhiker(hh)
+            self.player.add_passenger(hh)
 
     # ── Game creation ─────────────────────────────────────────────────────
     def _start_game(self):
@@ -369,17 +408,27 @@ class KeepDrivingEngine:
                 ox, oy = self.weather.shake_offset
             
             if self.renderer and self.weather:
-                self.renderer.render(self.canvas, self.car, self.car_manager,
-                                     self.weather.state, self.weather, self.time_of_day, (ox, oy), self.traffic)
+                # Determine upcoming encounter for road visualization
+                upcoming = None
+                if self.world_map and self.world_map.is_road:
+                    node = self.world_map.current_node
+                    dist = node.km_per_encounter - node.distance_since_last
+                    if node.encounters_remaining and dist < 0.8: # Show if within 800m
+                        upcoming = {
+                            'key': node.encounters_remaining[0],
+                            'dist': dist
+                        }
+
+                self.renderer.render(
+                    self.canvas, self.car, self.car_manager, 
+                    self.weather.state, self.weather, self.time_of_day, (ox, oy),
+                    traffic=self.traffic,
+                    upcoming_encounter=upcoming
+                )
                 
-                # Apply Environment Lighting (Time of Day + Weather)
-                filt = self.weather.get_lighting_filter(self.time_of_day)
-                if filt:
-                    self.canvas.blit(filt, (0, 0))
-            
             # The HUD must ALWAYS be drawn LAST, over the weather and night filters
             if self.hud:
-                self.hud.render(self.canvas, self.music_mgr)
+                self.hud.render(self.canvas, self.music_mgr, self.time_of_day, self.dialogue.get_current())
 
         if active_state == GameState.SETTLEMENT:
             self._render_settlement()

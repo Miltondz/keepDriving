@@ -1,0 +1,33 @@
+﻿python : Traceback (most recent call last):
+En línea: 1 Carácter: 1
++ python main.py 2> error.log
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], Rem 
+   oteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Milton\keep_driving\main.py", line 28, in main
+    engine.run()
+    ~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\core\engine.py", line 504, in run
+    self._handle_input()
+    ~~~~~~~~~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\core\engine.py", line 157, in _handle_input
+    self._start_game()
+    ~~~~~~~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\core\engine.py", line 323, in _start_game
+    self.setup()
+    ~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\core\engine.py", line 111, in setup
+    self.renderer    = GameRenderer()
+                       ~~~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\graphics\renderer.py", line 11, in __init__
+    self.parallax = ParallaxBackground()
+                    ~~~~~~~~~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\graphics\parallax.py", line 62, in __init__
+    self._load_external_assets()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Milton\keep_driving\graphics\parallax.py", line 94, in _load_external_assets
+    if not self.layers:
+           ^^^^^^^^^^^
+AttributeError: 'ParallaxBackground' object has no attribute 'layers'. Did you mean: 'layer_ys'?

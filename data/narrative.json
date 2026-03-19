@@ -1,0 +1,266 @@
+{
+  "encounters": {
+    "police_check": {
+      "title": "Police Checkpoint",
+      "description": "Red and blue lights flash ahead. A stern officer signals you to pull over.",
+      "flavour": "They say they're looking for someone. Best to stay calm.",
+      "tags": ["police", "delay"],
+      "difficulty": 2,
+      "avatar": "police",
+      "options": [
+        { "text": "Keep Calm", "effects": { "sanity": -5, "fuel": -2 } },
+        { "text": "Bribe ($20)", "effects": { "money": -20, "fuel": -1 } },
+        { "text": "Step on it!", "effects": { "sanity": -20, "condition": -10, "stats": "wanted" } }
+      ]
+    },
+    "broken_down_car": {
+      "title": "Stranded Motorist",
+      "description": "A beat-up sedan sits on the shoulder, hood popped. The driver looks desperate.",
+      "flavour": "The desert is no place to be stuck without a radiator.",
+      "tags": ["help", "charity"],
+      "difficulty": 1,
+      "avatar": "hiker_guy",
+      "options": [
+        { "text": "Offer Spare Part", "item_required": "spare_part", "effects": { "sanity": 20, "money": 30 } },
+        { "text": "Help with Tools", "effects": { "sanity": 10, "fuel": -5 } },
+        { "text": "Drive By", "effects": { "sanity": -10 } }
+      ]
+    },
+    "rest_stop": {
+      "title": "Roadside Oasis",
+      "description": "A small diner and a couple of rusty pumps. It's not much, but it's a break.",
+      "flavour": "The coffee smells like burnt rubber, but at least it's hot.",
+      "tags": ["shop", "fuel", "rest"],
+      "difficulty": 0,
+       "avatar": "gas_station",
+       "options": [
+         { "text": "Refuel ($20)", "effects": { "fuel": 30, "money": -20 } },
+         { "text": "Eat Snack ($5)", "effects": { "sanity": 15, "money": -5 } },
+         { "text": "Keep Driving", "effects": {} }
+       ]
+    },
+    "gas_station": {
+      "title": "Fuel & Snacks",
+      "description": "The last stop for a hundred miles.",
+      "flavour": "Pay first, then pump. Same as it ever was.",
+      "tags": ["fuel", "shop"],
+      "difficulty": 0,
+      "avatar": "gas_station",
+      "options": [
+        { "text": "Full Tank ($40)", "effects": { "fuel": 100, "money": -40 } },
+        { "text": "Just Five Bucks", "effects": { "fuel": 10, "money": -5 } },
+        { "text": "Leave", "effects": {} }
+      ]
+    },
+    "flat_tire": {
+       "title": "Bad Luck",
+       "description": "A sudden POP and the car pulls hard to the left.",
+       "flavour": "Always at the worst possible time.",
+       "tags": ["hazard", "car"],
+       "difficulty": 2,
+       "avatar": "hiker_guy",
+       "options": [
+         { "text": "Change Tire", "effects": { "sanity": -15, "fuel": -2 } },
+         { "text": "Call Tow ($50)", "effects": { "money": -50, "condition": 20 } }
+       ]
+    }
+  },
+  "hitchhikers": [
+    {
+      "name": "The Songwriter",
+      "color": [180, 180, 220],
+      "personality": "friendly",
+      "destination": "Bayside",
+      "description": "Wears a faded denim jacket. Carries a guitar case.",
+      "abilities": {
+        "NEW": [
+          {
+            "name": "Upbeat Tune",
+            "description": "Hums a catchy melody. Restores 10 sanity.",
+            "tags": ["fatigue"],
+            "effect": "restore_sanity_10"
+          }
+        ],
+        "BONDED": [
+          {
+            "name": "Road Song",
+            "description": "Restores 25 sanity + 10 fuel.",
+            "tags": ["fatigue", "fog"],
+            "effect": "restore_sanity_25_fuel"
+          }
+        ],
+        "COMPLICATED": [
+          {
+            "name": "Melancholy",
+            "description": "Powerful song but costs 20 sanity.",
+            "tags": [],
+            "effect": "melancholy_song",
+            "drawback": "Their sadness is infectious."
+          }
+        ]
+      },
+      "passive": {
+        "sanity_per_km": 0.5
+      },
+      "km_bonded": 60,
+      "km_complicated": 160,
+      "conversations": [
+        "This road reminds me of home.",
+        [
+            "I used to have a band back in the city.",
+            "Nothing big, just local dives and the occasional wedding.",
+            "But the drummer... well, he found a real job. And the bassist moved to the coast.",
+            "Now it's just me and this old guitar, looking for a new sound."
+        ],
+        "Bayside has the best sunsets.",
+        [
+            "You ever feel like you're just a character in someone else's song?",
+            "Like you're just following the chords they laid down years ago...",
+            "Sometimes I think if I play loud enough, I can break the rhythm."
+        ],
+        "Wanna hear the new verse?"
+      ],
+      "avatar": "old_man"
+    },
+    {
+      "name": "The Stranger",
+      "color": [120, 120, 140],
+      "personality": "unsettling",
+      "destination": "Unknown",
+      "description": "No destination given. Stares at the road.",
+      "abilities": {
+        "NEW": [
+          {
+            "name": "Eerie Calm",
+            "description": "Resolves any encounter, unknown method.",
+            "tags": ["any"],
+            "effect": "resolve_any"
+          }
+        ],
+        "BONDED": [
+          {
+            "name": "Know the Road",
+            "description": "Skip next 2 encounters entirely.",
+            "tags": [],
+            "effect": "skip_encounters"
+          }
+        ],
+        "COMPLICATED": [
+          {
+            "name": "The Weight",
+            "description": "Removes encounter but drains 30 sanity.",
+            "tags": [],
+            "effect": "resolve_any",
+            "drawback": "You don't want to know how they did it."
+          }
+        ]
+      },
+      "passive": {
+        "sanity_per_km": -1.0
+      },
+      "km_bonded": 50,
+      "km_complicated": 100,
+      "conversations": [
+        "I knew you'd stop.",
+        [
+            "The mirrors in this car... they're not just for the road.",
+            "The past is always following us, right there in the glass.",
+            "Most people keep their eyes forward so they don't have to see it.",
+            "But you... you keep checking them. You're looking for something."
+        ],
+        "Don't look in the mirror.",
+        [
+            "There's a place where the highway just... ends.",
+            "No sign, no barrier. Just a sudden lack of asphalt.",
+            "I've been there twice. Once going south, once going nowhere.",
+            "We're headed in that general direction."
+        ],
+        "They can't follow here."
+      ],
+      "avatar": "agent"
+    },
+    {
+      "name": "The Hiker",
+      "color": [160, 200, 140],
+      "personality": "friendly",
+      "destination": "Coldwater Pass",
+      "description": "Backpack, boots, wonder in their eyes.",
+      "abilities": {
+        "NEW": [
+          {
+            "name": "Fresh Air!",
+            "description": "Open windows — restores 15 sanity.",
+            "tags": ["fatigue"],
+            "effect": "restore_sanity_15"
+          }
+        ],
+        "BONDED": [
+          {
+            "name": "Trail Knowledge",
+            "description": "Avoids roadblocks and hazards.",
+            "tags": ["barrier", "hazard"],
+            "effect": "avoid_hazard"
+          }
+        ],
+        "COMPLICATED": [
+          {
+            "name": "Detour",
+            "description": "Avoids danger but adds 20km to route.",
+            "tags": ["danger"],
+            "effect": "detour",
+            "drawback": "The long way around is exhausting."
+          }
+        ]
+      },
+      "passive": {
+        "sanity_per_km": 0.2
+      },
+      "km_bonded": 70,
+      "km_complicated": 180,
+      "conversations": [
+        "Nice weather today.",
+        [
+            "I've been walking since the border.",
+            "People ask why I don't just take the bus, but they miss the details.",
+            "The way the light hits the sagebrush at dawn... you can't see that from a window.",
+            "Well, technically we're looking through a window now, but you know what I mean!"
+        ],
+        "I like this song.",
+        [
+            "Did you see that hawk back there?",
+            "It was riding the thermals, barely moving its wings.",
+            "Sometimes I wish I could just do that. Just float above the highway...",
+            "But then I'd missing out on meeting interesting drivers like you."
+        ]
+      ],
+      "avatar": "hiker_guy"
+    }
+  ],
+  "settlements": [
+    {
+      "name": "Dry Creek",
+      "size": "village",
+      "services": ["fuel", "rest", "recruit"]
+    },
+    {
+      "name": "Pine Hollow",
+      "size": "small_town",
+      "services": ["fuel", "shop", "rest"]
+    },
+    {
+      "name": "Bayside",
+      "size": "city",
+      "services": ["fuel", "repair", "shop", "rest", "recruit"]
+    }
+  ],
+  "biomes": {
+    "desert": {
+      "encounters": ["flat_tire", "hitchhiker", "heat_shimmer", "broken_down_car", "police_check"],
+      "color": [200, 150, 80]
+    },
+    "forest": {
+      "encounters": ["deer_crossing", "fallen_tree", "hitchhiker", "fog"],
+      "color": [80, 150, 80]
+    }
+  }
+}

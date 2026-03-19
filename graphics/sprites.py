@@ -26,7 +26,11 @@ def load_spritesheet(path, frame_width, frame_height):
     sheet_width = sheet.get_width()
     sheet_height = sheet.get_height()
     for y in range(0, sheet_height, frame_height):
+        if y + frame_height > sheet_height:
+            continue
         for x in range(0, sheet_width, frame_width):
+            if x + frame_width > sheet_width:
+                continue
             frame = sheet.subsurface((x, y, frame_width, frame_height))
             frames.append(frame)
     return frames
