@@ -4,6 +4,8 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 
 ![Game Preview](assets/preview.png)
 
+![Gameplay Interface](assets/gameplay.png)
+
 ## 🌟 Key Features
 
 ### 🛤️ Dynamic World & Driving

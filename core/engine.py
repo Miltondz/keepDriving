@@ -20,6 +20,7 @@ from entities.inventory import GloveboxInventory
 from systems.car_manager import CarManager
 from systems.turn_engine import TurnEngine
 from systems.music_manager import MusicManager
+from systems.sound_manager import SoundManager
 from systems.dialogue_system import DialogueSystem
 from systems.weather import WeatherSystem
 from systems.traffic import TrafficManager
@@ -28,6 +29,7 @@ from world.locations import Settlement, RoadType
 from ui.hud import HUD
 from ui.encounter_ui import EncounterUI
 from ui.menu_screens import MenuScreen, SettingsScreen, ShopScreen
+from ui.mixtape_menu import MixtapeMenu
 
 W, H = BASE_RESOLUTION
 
@@ -45,11 +47,13 @@ class GameState(Enum):
     MENU       = auto()
     SETTINGS   = auto()
     TRAVEL     = auto()
+    PAUSED     = auto()
     ENCOUNTER  = auto()
     SETTLEMENT = auto()
     SHOP       = auto()
     GAME_OVER  = auto()
     WIN        = auto()
+    MIXTAPE_SELECT = auto()
 
 
 class KeepDrivingEngine:
@@ -96,6 +100,7 @@ class KeepDrivingEngine:
         self.menu_screen = MenuScreen(self._font_lg, self._font_md)
         self.settings_screen = SettingsScreen(self._font_md)
         self.shop_screen = None # Created per settlement
+        self.mixtape_menu = MixtapeMenu(self._font_md)
 
         # Time of day: 0.0 (midnight) to 1.0 (midnight), 0.5 is noon
         self.time_of_day = 0.4
@@ -113,6 +118,7 @@ class KeepDrivingEngine:
         self.world_map   = WorldMap(seed=None, num_segments=8)
         self.turn_engine = TurnEngine(self.player, self.car_manager)
         self.music_mgr   = MusicManager()
+        self.sound_mgr   = SoundManager()
         self.dialogue    = DialogueSystem()
         self.renderer    = GameRenderer()
         self.hud         = HUD(self.player, self.car_manager, self.world_map, self.inventory)
@@ -144,13 +150,40 @@ class KeepDrivingEngine:
             if event.type == pygame.QUIT:
                 self.running = False
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    self.running = False
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self.hud and self.hud.handle_click(
+                    (int(event.pos[0] * (W / SCREEN_WIDTH)), int(event.pos[1] * (H / SCREEN_HEIGHT))), 
+                    self
+                ):
+                    continue
 
-                # View switch (always available)
+            if event.type == pygame.KEYDOWN:
+                if getattr(self, 'exit_confirm', False):
+                    if event.key == pygame.K_y:
+                        self.running = False
+                    elif event.key == pygame.K_n or event.key == pygame.K_ESCAPE:
+                        self.exit_confirm = False
+                    continue
+
+                if event.key == pygame.K_ESCAPE:
+                    if self.hud and getattr(self.hud, 'show_zoomed_cassette', False):
+                        self.hud.show_zoomed_cassette = False
+                    elif self.state in (GameState.TRAVEL, GameState.PAUSED):
+                        self.exit_confirm = True
+                    else:
+                        self.running = False
+
+                if event.key == pygame.K_SPACE:
+                    if self.state == GameState.TRAVEL:
+                        self.state = GameState.PAUSED
+                    elif self.state == GameState.PAUSED:
+                        self.state = GameState.TRAVEL
+
+                # Help overlay (F1)
                 if event.key == pygame.K_F1:
-                    self.renderer.switch_view('interior')
+                    self.show_help = not getattr(self, 'show_help', False)
+
+                # View switch (F2, F3)
                 elif event.key == pygame.K_F2:
                     self.renderer.switch_view('topdown')
                 elif event.key == pygame.K_F3:
@@ -168,6 +201,15 @@ class KeepDrivingEngine:
                 elif event.key == pygame.K_F8: self.weather.state = "sandstorm"
                 elif event.key == pygame.K_F9: self.weather.state = "snow"
                 elif event.key == pygame.K_F10: self.post_proc.cycle()
+                
+                # Radio & Audio controls
+                elif event.key == pygame.K_LEFTBRACKET:  self.music_mgr.volume_down()
+                elif event.key == pygame.K_RIGHTBRACKET: self.music_mgr.volume_up()
+                elif event.key == pygame.K_n:            self.music_mgr.next_track()
+                elif event.key == pygame.K_k:
+                    if self.state in (GameState.TRAVEL, GameState.SETTLEMENT):
+                        self.mixtape_menu.update_mixtapes(self.music_mgr.mixtapes)
+                        self.state = GameState.MIXTAPE_SELECT
 
                 # State-specific
                 if self.state == GameState.MENU:
@@ -178,6 +220,14 @@ class KeepDrivingEngine:
                         self.state = GameState.SETTINGS
                     elif choice == "EXIT":
                         self.running = False
+
+                elif self.state == GameState.MIXTAPE_SELECT:
+                    choice = self.mixtape_menu.handle_input(event)
+                    if choice == "BACK":
+                        self.state = GameState.TRAVEL
+                    elif isinstance(choice, int):
+                        self.music_mgr.play(mixtape_idx=choice)
+                        self.state = GameState.TRAVEL
 
                 elif self.state == GameState.SETTINGS:
                     choice = self.settings_screen.handle_input(event)
@@ -222,12 +272,16 @@ class KeepDrivingEngine:
                         if choice["name"] == "LEAVE":
                             self.state = GameState.SETTLEMENT
                         elif self.player.spend(choice["price"]):
+                            self.sound_mgr.play("purchase")
                             if "REFUEL" in choice["name"]:
                                 self.car_manager.refuel(100)
+                                self.sound_mgr.play("fueling")
                             elif "REPAIR" in choice["name"]:
                                 self.car_manager.condition = min(100, self.car_manager.condition + 40)
+                                self.sound_mgr.play("repair")
                             elif "SNACK" in choice["name"]:
                                 self.player.modify_sanity(30)
+                                self.sound_mgr.play("eat")
                             # Maybe refresh screen or play sound?
 
                 elif self.state in (GameState.GAME_OVER, GameState.WIN):
@@ -273,8 +327,10 @@ class KeepDrivingEngine:
             keys = pygame.key.get_pressed()
             if keys[pygame.K_w] or keys[pygame.K_UP]:
                 self.car.accelerate(dt)
+                self.sound_mgr.play("engine_rev")
             if keys[pygame.K_s] or keys[pygame.K_DOWN]:
                 self.car.brake(dt)
+                self.sound_mgr.play("brake_squeal")
 
             # Physics + resources
             self.car.update(dt)
@@ -413,11 +469,21 @@ class KeepDrivingEngine:
                 if self.world_map and self.world_map.is_road:
                     node = self.world_map.current_node
                     dist = node.km_per_encounter - node.distance_since_last
-                    if node.encounters_remaining and dist < 0.8: # Show if within 800m
-                        upcoming = {
-                            'key': node.encounters_remaining[0],
-                            'dist': dist
-                        }
+                    
+                    if self.state in (GameState.TRAVEL, GameState.PAUSED):
+                        if node.encounters_remaining and dist < 0.8: # Show if within 800m
+                            upcoming = {
+                                'key': node.encounters_remaining[0],
+                                'dist': dist
+                            }
+                    elif self.state == GameState.ENCOUNTER:
+                        # Draw the current encounter parked right at the car (dist=0)
+                        curr_enc = getattr(self.turn_engine, 'current_encounter', None)
+                        if curr_enc:
+                            upcoming = {
+                                'key': curr_enc.id if hasattr(curr_enc, 'id') else 'marker',
+                                'dist': 0.0
+                            }
 
                 self.renderer.render(
                     self.canvas, self.car, self.car_manager, 
@@ -449,6 +515,9 @@ class KeepDrivingEngine:
         elif active_state == GameState.SETTINGS:
             self.settings_screen.render(self.canvas)
 
+        elif active_state == GameState.MIXTAPE_SELECT:
+            self.mixtape_menu.render(self.canvas)
+
         elif active_state == GameState.GAME_OVER:
             self._render_end("STRANDED", "The road beat you.", "(R) Try Again")
 
@@ -460,6 +529,54 @@ class KeepDrivingEngine:
         # Outcome flash
         if self.enc_ui and self.enc_ui.outcome_timer > 0:
             self.enc_ui.render(self.canvas)
+
+        # Pause overlay
+        if active_state == GameState.PAUSED:
+            p_txt = self._font_lg.render("PAUSED", True, (255, 255, 255))
+            self.canvas.blit(p_txt, (W//2 - p_txt.get_width()//2, H//2 - p_txt.get_height()//2))
+
+        # Exit confirmation overlay
+        if getattr(self, 'exit_confirm', False):
+            bw, bh = 220, 90
+            bx, by = W//2 - bw//2, H//2 - bh//2
+            pygame.draw.rect(self.canvas, (20, 20, 30), (bx, by, bw, bh))
+            pygame.draw.rect(self.canvas, (200, 50, 50), (bx, by, bw, bh), 2)
+            
+            txt1 = self._font_md.render("QUIT GAME?", True, (255, 255, 255))
+            txt2 = self._font_sm.render("Unsaved progress will be lost.", True, (150, 150, 150))
+            txt3 = self._font_sm.render("[Y] YES   /   [N] NO", True, (200, 200, 100))
+            
+            self.canvas.blit(txt1, (W//2 - txt1.get_width()//2, by + 15))
+            self.canvas.blit(txt2, (W//2 - txt2.get_width()//2, by + 40))
+            self.canvas.blit(txt3, (W//2 - txt3.get_width()//2, by + 65))
+
+        # F1 Help overlay
+        if getattr(self, 'show_help', False):
+            bw, bh = 280, 180
+            bx, by = W//2 - bw//2, 40
+            pygame.draw.rect(self.canvas, (10, 10, 15, 220), (bx, by, bw, bh))
+            pygame.draw.rect(self.canvas, (100, 100, 120), (bx, by, bw, bh), 1)
+            
+            title = self._font_md.render("CONTROLS & SHORTCUTS", True, (255, 215, 70))
+            self.canvas.blit(title, (bx + 15, by + 15))
+            
+            lines = [
+                "W / UP : Accelerate",
+                "S / DOWN : Brake",
+                "SPACE : Pause Game",
+                "F1 : Toggle Help",
+                "[ , ] : Volume Down / Volume Up",
+                "N : Next Track",
+                "K : Tape Collection",
+                "F4-F9 : Debug Weather/Time",
+                "ESC : Quit Game"
+            ]
+            
+            cy = by + 40
+            for line in lines:
+                txt = self._font_sm.render(line, True, (200, 200, 200))
+                self.canvas.blit(txt, (bx + 20, cy))
+                cy += 14
 
         # ── Post-processing filter (applied to canvas before upscale) ────────
         if self.post_proc.current != 0:

@@ -48,12 +48,11 @@ class GameRenderer:
         if upcoming_encounter:
             dist = upcoming_encounter['dist']
             threshold = 0.4 # Appear at 400m
-            if dist < threshold:
+            if 0 <= dist <= threshold:
                 # Progress from 0.0 (far right) to 1.0 (approaching car)
-                # car is at rx + rw*0.25 (approx 110 + 370*0.25 = 202)
-                # W = 640. So we want to go from 640 to 200.
+                # W = 640. Front of the car is roughly at x=380.
                 progress = (threshold - dist) / threshold # 0.0 to 1.0
-                screen_x = W - progress * (W - 200)
+                screen_x = W - progress * (W - 380)
                 scale = 0.2 + progress * 1.0 # 0.2 to 1.2
                 
                 if 'hitchhiker' in upcoming_encounter['key']:
