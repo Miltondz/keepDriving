@@ -110,6 +110,20 @@ class Hitchhiker:
             RelationshipStage.COMPLICATED: "★★✦",
         }[self.stage]
 
+    def get_next_story(self) -> list[str]:
+        """Returns a list of strings for a dialogue encounter."""
+        if not self.conversations:
+            return ["..."]
+        
+        story = self.conversations[self.dialogue_index % len(self.conversations)]
+        self.dialogue_index += 1
+        
+        # If it's a single string, wrap it in a list
+        if isinstance(story, str):
+            return [story]
+        return story  # already a list of strings
+
+
     def __repr__(self):
         return f"Hitchhiker({self.name} [{self.stage.name}] {self.km_traveled:.0f}km)"
 
@@ -121,6 +135,7 @@ def random_hitchhiker() -> Hitchhiker:
         # Fallback if loader fails
         return Hitchhiker({
             "name": "Ghost Driver", "personality": "quiet", "destination": "???", 
-            "description": "...", "abilities": {}, "km_bonded": 100, "km_complicated": 200
+            "description": "...", "abilities": {}, "km_bonded": 100, "km_complicated": 200,
+            "avatar": "agent"
         })
     return Hitchhiker(random.choice(templates))

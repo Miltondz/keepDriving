@@ -34,7 +34,9 @@ class GameRenderer:
     def render(self, surface, car, car_manager, weather_state="sunny",
                weather_sys=None, time_of_day=0.5, offset=(0, 0), traffic=None, upcoming_encounter=None):
         ox, oy = offset
-        day_factor = max(0.0, math.sin(time_of_day * math.pi))
+        # Day/Night factor: sin wave shifted so 0.25(6AM) to 0.75(6PM) is day
+        # Center of day is 0.5 (Noon)
+        day_factor = max(0.0, math.sin((time_of_day - 0.25) * 2.0 * math.pi))
         is_night   = day_factor < 0.6
         road_y_pos = ROAD_Y + oy
 
@@ -83,7 +85,7 @@ class GameRenderer:
             darkness_alpha = min(190, max(0, darkness_alpha))
             self._dark_surf.fill((5, 8, 25, darkness_alpha))
 
-            hx, hy = cx + 112, car_y + 44
+            hx, hy = cx + 103, car_y + 59
             self._light_surf.fill((0, 0, 0, 0))
             cone_len, cone_half = 180, 22
             for step in range(8, 0, -1):
@@ -94,8 +96,8 @@ class GameRenderer:
             for r in range(18, 0, -2):
                 pygame.draw.circle(self._light_surf, (255, 255, 180, int(160 * (1.0 - r/18.0))), (hx, hy), r)
 
-            # Taillight
-            rx, ry = cx + 2, car_y + 44
+            # Taillight 8 pixels down From 44 to 52
+            rx, ry = cx + 2, car_y + 52
             for r in range(16, 0, -2):
                 pygame.draw.circle(self._dark_surf, (255, 40, 40, int(160 * (1.0 - r/16.0))), (rx, ry), r)
 

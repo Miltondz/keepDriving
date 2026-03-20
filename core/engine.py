@@ -8,7 +8,7 @@ import random
 from enum import Enum, auto
 
 from core.config import (BASE_RESOLUTION, SCREEN_WIDTH, SCREEN_HEIGHT,
-                         TARGET_FPS, COLORS)
+                         TARGET_FPS, TIME_ACCEL, COLORS)
 from core.events import events, EVENTS
 
 from graphics.renderer import GameRenderer
@@ -252,6 +252,9 @@ class KeepDrivingEngine:
                     # L = leave settlement
                     if event.key == pygame.K_l:
                         self._leave_settlement()
+                    # H = recruit hitchhiker
+                    elif event.key == pygame.K_h:
+                        self._recruit_hitchhiker()
                     # R = enter shop / interaction
                     elif event.key == pygame.K_r or event.key == pygame.K_s:
                         self.shop_screen = ShopScreen(self._font_md, self._current_settlement.name)
@@ -299,7 +302,7 @@ class KeepDrivingEngine:
 
     # ── Update ────────────────────────────────────────────────────────────
     def _update(self, dt):
-        self.time_of_day = (self.time_of_day + dt * 0.002) % 1.0
+        self.time_of_day = (self.time_of_day + dt * TIME_ACCEL) % 1.0
         self.car_manager.update(dt) 
         self.music_mgr.update(dt)
         self.hud.update(dt)
@@ -309,28 +312,7 @@ class KeepDrivingEngine:
 
         if self.state == GameState.TRAVEL:
             self._maybe_trigger_conversation(dt)
-
-    def _maybe_trigger_conversation(self, dt):
-        """Randomly trigger dialogue with hitchhikers."""
-        if self.dialogue.is_active(): return
-        
-        # 0.5% chance per second when moving
-        if self.car.speed > 10 and random.random() < 0.005:
-            # Filter None to avoid crash
-            passengers = [p for p in self.player.passengers.values() if p is not None]
-            if passengers:
-                p = random.choice(passengers)
-                story = p.get_next_story() 
-                from systems.dialogue_system import DialogueTree, DialogueLine
-                lines = []
-                for i, text in enumerate(story):
-                    next_id = i + 1 if i < len(story) - 1 else None
-                    lines.append(DialogueLine(p.name, text, next_id))
-                
-                tree = DialogueTree(lines)
-                self.dialogue.start(tree)
-
-        if self.state == GameState.TRAVEL:
+            
             # Continuous input
             keys = pygame.key.get_pressed()
             if keys[pygame.K_w] or keys[pygame.K_UP]:
@@ -372,7 +354,7 @@ class KeepDrivingEngine:
             if self.world_map.is_settlement and self.state == GameState.TRAVEL:
                 self._enter_settlement(self.world_map.current_node)
 
-            # Sync biome with parallax
+            # Sync biome with parallax (if road type changed)
             if self.world_map.is_road:
                 biome = ROAD_BIOMES.get(self.world_map.current_node.road_type, "desert")
                 self.renderer.set_biome(biome)
@@ -389,7 +371,6 @@ class KeepDrivingEngine:
 
             # Speeding police risk (only when above 100km/h)
             if self.car.speed > 100 and self.state == GameState.TRAVEL and getattr(self.enc_ui, 'is_visible', False) == False:
-                # Highest speed (170) = +70. Chance ~ 0.001 per frame (6% per second)
                 over_speed = self.car.speed - 100
                 if random.random() < over_speed * 0.000015:
                     if random.random() < 0.10:
@@ -400,8 +381,33 @@ class KeepDrivingEngine:
             if self.world_map.at_end:
                 self.state = GameState.WIN
 
+    def _maybe_trigger_conversation(self, dt):
+        """Randomly trigger dialogue with hitchhikers."""
+        if self.dialogue.is_active(): return
+        
+        # 0.5% chance per second when moving
+        if self.car.speed > 10 and random.random() < 0.005:
+            # Filter None to avoid crash
+            passengers = [p for p in self.player.passengers.values() if p is not None]
+            if passengers:
+                p = random.choice(passengers)
+                story = p.get_next_story() 
+                from systems.dialogue_system import DialogueTree, DialogueLine
+                lines = []
+                for i, text in enumerate(story):
+                    next_id = i + 1 if i < len(story) - 1 else None
+                    lines.append(DialogueLine(p.name, text, next_id, p.avatar))
+                
+                tree = DialogueTree(lines)
+                self.dialogue.start(tree)
+
+
     # ── Encounter flow ────────────────────────────────────────────────────
     def _trigger_encounter(self, key: str):
+        # Clear any active HUD conversations to avoid conflict
+        if self.dialogue.is_active():
+            self.dialogue.clear()
+
         encounter = self.turn_engine.trigger(key)
         if not encounter:
             return
@@ -675,7 +681,7 @@ class KeepDrivingEngine:
         menu = []
         if 'fuel'   in services: menu.append("[R] Refuel — $20")
         if 'repair' in services: menu.append("[F] Repair Car — $30")
-        menu.append("[H] Recruit Hitchhiker")
+        if 'recruit' in services: menu.append("[H] Recruit Hitchhiker")
         menu.append("[L] Leave Town")
 
         for i, line in enumerate(menu):

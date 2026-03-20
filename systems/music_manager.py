@@ -2,6 +2,7 @@
 import os
 import random
 import pygame
+from core.config import ASSETS_DIR
 
 
 class Mixtape:
@@ -20,13 +21,13 @@ class Mixtape:
         supported_exts = ('.mp3', '.ogg', '.wav')
         self.songs = [f for f in os.listdir(self.directory) if f.casefold().endswith(supported_exts)]
         
-        # Check for local cover template
-        cover_names = ["cassette.png", "cassette_template.png", "label.png"]
-        for cn in cover_names:
-            cp = os.path.join(self.directory, cn)
-            if os.path.exists(cp):
-                self.cover_path = cp
-                break
+        # Flexible search for cover art
+        for f in os.listdir(self.directory):
+            fname = f.casefold()
+            if fname.endswith(('.png', '.jpg', '.jpeg')):
+                if any(x in fname for x in ["cassette", "cover", "label", "album", "tape"]):
+                    self.cover_path = os.path.join(self.directory, f)
+                    break
 
     def get_song(self, index):
         if not self.songs: return None
@@ -37,7 +38,7 @@ class MusicManager:
     """Manages playing music organized into Mixtapes from subfolders in assets/audio/radio."""
 
     def __init__(self):
-        self.radio_dir = os.path.join("assets", "audio", "radio")
+        self.radio_dir = os.path.join(ASSETS_DIR, "audio", "radio")
         if not os.path.exists(self.radio_dir):
             os.makedirs(self.radio_dir, exist_ok=True)
 
@@ -49,6 +50,9 @@ class MusicManager:
         self.now_playing = None
         self.playing = False
         self.volume = 0.5
+        
+        self.preview_mode = False
+        self.preview_start_time = 0
         
         self.refresh_library()
 
@@ -70,11 +74,17 @@ class MusicManager:
                         self.mixtapes.append(tape)
         
         if not self.current_mixtape and self.mixtapes:
-            self.current_mixtape = self.mixtapes[0]
+            tape = random.choice(self.mixtapes)
+            self.current_mixtape = tape
+            self.current_mixtape_idx = self.mixtapes.index(tape)
+            # Pick a random starting song index
+            if tape.songs:
+                self.song_index = random.randint(0, len(tape.songs) - 1)
             
-        print(f"Loaded {len(self.mixtapes)} mixtapes.")
+        name = self.current_mixtape.name if self.current_mixtape is not None else 'None'
+        print(f"Loaded {len(self.mixtapes)} mixtapes. Starting with: {name}")
 
-    def play(self, mixtape_idx=None, song_name=None):
+    def play(self, mixtape_idx=None, song_name=None, is_preview=False):
         """Play a song from a specific mixtape or the current one."""
         if not self.mixtapes:
             self.refresh_library()
@@ -83,14 +93,19 @@ class MusicManager:
         if mixtape_idx is not None and 0 <= mixtape_idx < len(self.mixtapes):
             self.current_mixtape = self.mixtapes[mixtape_idx]
             self.current_mixtape_idx = mixtape_idx
-            self.song_index = 0
+            if not is_preview:
+                self.song_index = 0
 
         if not self.current_mixtape:
-            self.current_mixtape = self.mixtapes[0]
-            self.current_mixtape_idx = 0
+            if self.mixtapes:
+                self.current_mixtape = self.mixtapes[0]
+                self.current_mixtape_idx = 0
+            else: return
 
         if song_name is None:
-            song_name = self.current_mixtape.get_song(self.song_index)
+            # If preview, always play the first song of the target mixtape
+            idx = 0 if is_preview else self.song_index
+            song_name = self.current_mixtape.get_song(idx)
         
         if not song_name:
             self.playing = False
@@ -107,6 +122,7 @@ class MusicManager:
                 "cover_path": self.current_mixtape.cover_path
             }
             self.playing = True
+            self.preview_mode = is_preview
         except Exception as e:
             print(f"Error playing {song_name}: {e}")
             self.playing = False
@@ -127,8 +143,14 @@ class MusicManager:
             self.playing = True
 
     def update(self, dt: float):
-        if self.playing and not pygame.mixer.music.get_busy():
-            self.next_track()
+        if self.playing:
+            if self.preview_mode:
+                # get_pos returns ms
+                if pygame.mixer.music.get_pos() > 10000:
+                    self.stop()
+                    self.preview_mode = False
+            elif not pygame.mixer.music.get_busy():
+                self.next_track()
 
     def next_track(self):
         if self.current_mixtape and self.current_mixtape.songs:

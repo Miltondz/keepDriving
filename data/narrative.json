@@ -63,6 +63,18 @@
          { "text": "Change Tire", "effects": { "sanity": -15, "fuel": -2 } },
          { "text": "Call Tow ($50)", "effects": { "money": -50, "condition": 20 } }
        ]
+    },
+    "hitchhiker": {
+      "title": "Roadside Hitchhiker",
+      "description": "A figure stands by the road, thumb out. They look like they've been waiting for a while.",
+      "flavour": "Everyone has a story. Some are just longer than others.",
+      "tags": ["hitchhiker", "passenger"],
+      "difficulty": 1,
+      "avatar": "hiker_guy",
+      "options": [
+        { "text": "Pick Them Up", "effects": { "sanity": 10, "option": "Pick Them Up" } },
+        { "text": "Drive On", "effects": { "sanity": -5 } }
+      ]
     }
   },
   "hitchhikers": [

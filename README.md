@@ -18,9 +18,9 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 *   **Status Systems:** Track Car Condition, dynamic analog Fuel needles, Player Sanity, and a **dynamic Speedometer** that turns red when speeding.
 *   **Multi-View System:** Toggle between **Interior view (F1)**, **Map view (F2)**, and **Road view (F3)**, now featuring appropriate character seating avatars.
 
-### 🎭 Encounters & Survival
-*   **Interactive Passenger Storytelling:** Hitchhikers now share multi-line narratives and personal accounts. Players can advance the conversation by clicking on the dashboard dialogue area.
-*   **Encounter Pre-visualization:** Upcoming road events (characters, towns, hazards) now visually appear on the horizon and scale as you approach, providing a tactical warning system.
+### 🎭 Interactive Systems
+*   **📟 Mixtape & Cassette System:** The system dynamically scans your music folders for images and renders them as physical tapes. Includes a high-definition glovebox preview for each mixtape.
+*   **💬 Cinematic Dialogue HUD:** Conversations with passengers feature automatic word wrapping and speaker portraits, placed strategically at the top of the screen.
 *   **Resource Management:** Manage your cash to refuel and repair your van at settlements. Fuel consumption reacts in real-time to your speed and torque usage.
 
 ### 🌗 Atmospheric Systems
@@ -33,11 +33,11 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 |-----|--------|
 | **W / ↑** | Accelerate |
 | **S / ↓** | Brake / Reverse |
-| **Mouse Click**| Advance passenger dialogue (on Dash) |
+| **Mouse Click**| Advance passenger dialogue (on Dash) or Open Glovebox |
 | **F1** | Interior View |
 | **F2** | Strategy / Map View |
 | **F3** | Driving / Road View (Default) |
-| **ESC** | Quit Game |
+| **ESC** | Quit Game / Close Glovebox |
 
 **During Settlements:**
 *   **R**: Interaction / Enter Shop
@@ -47,7 +47,7 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 
 *   **Engine:** [Pygame-ce](https://pyga.me/) (Python Game Engine)
 *   **Language:** Python 3.10+
-*   **Graphics:** Procedural parallax system with fallback ground rendering for high compatibility.
+*   **Assets:** Dynamic asset loading with a specialized **Surface Cache** to handle high-resolution textures without affecting frame rates.
 
 ## 🚀 Getting Started
 
@@ -73,6 +73,8 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 - [x] Interactive multi-line passenger storytelling.
 - [x] Precise Day/Night lighting and biome transitions.
 - [x] Roadside object pre-visualization (approach markers).
+- [x] **New:** Interactive Mixtape system with custom artwork loading.
+- [x] **New:** Advanced Dialogue HUD with word-wrapping and portraits.
 - [ ] Complex inventory system with usable items.
 - [ ] Weather-specific handling physics (hydroplaning/skidding).
 

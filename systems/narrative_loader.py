@@ -43,7 +43,7 @@ class NarrativeLoader:
     def hitchhiker_templates(self):
         """Retorna las plantillas de autoestopistas."""
         if self._data:
-            return self._data.get('hitchhiker_templates', [])
+            return self._data.get('hitchhikers', [])
         return []
     
     @property
@@ -62,7 +62,7 @@ class NarrativeLoader:
     def get_hitchhiker_template(self, name):
         """Obtiene una plantilla de autoestopista por nombre."""
         if self._data:
-            for template in self._data.get('hitchhiker_templates', []):
+            for template in self._data.get('hitchhikers', []):
                 if template.get('name') == name:
                     return template
         return None

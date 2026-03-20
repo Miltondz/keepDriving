@@ -8,6 +8,7 @@ SCREEN_HEIGHT = 720
 BASE_RESOLUTION = (640, 360)  # Internal render resolution (2x scaling to window)
 
 TARGET_FPS = 60
+TIME_ACCEL = 0.002  # Default speed for day/night cycle
 
 # Game Constants
 MAX_FUEL = 100
