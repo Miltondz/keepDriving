@@ -185,9 +185,9 @@ class KeepDrivingEngine:
 
                 # View switch (F2, F3)
                 elif event.key == pygame.K_F2:
-                    self.renderer.switch_view('topdown')
+                    if self.player: self.renderer.switch_view('topdown')
                 elif event.key == pygame.K_F3:
-                    self.renderer.switch_view('side')
+                    if self.player: self.renderer.switch_view('side')
                 
                 # Debug Shortcuts (F4 - F9)
                 elif event.key == pygame.K_F4: # Day / Night toggle
@@ -195,19 +195,27 @@ class KeepDrivingEngine:
                         self.time_of_day = 0.85 # Night
                     else:
                         self.time_of_day = 0.5 # Day
-                elif event.key == pygame.K_F5: self.weather.state = "sunny"
-                elif event.key == pygame.K_F6: self.weather.state = "rain"
-                elif event.key == pygame.K_F7: self.weather.state = "storm"
-                elif event.key == pygame.K_F8: self.weather.state = "sandstorm"
-                elif event.key == pygame.K_F9: self.weather.state = "snow"
+                elif event.key == pygame.K_F5: 
+                    if self.player: self.weather.state = "sunny"
+                elif event.key == pygame.K_F6: 
+                    if self.player: self.weather.state = "rain"
+                elif event.key == pygame.K_F7: 
+                    if self.player: self.weather.state = "storm"
+                elif event.key == pygame.K_F8: 
+                    if self.player: self.weather.state = "sandstorm"
+                elif event.key == pygame.K_F9: 
+                    if self.player: self.weather.state = "snow"
                 elif event.key == pygame.K_F10: self.post_proc.cycle()
                 
                 # Radio & Audio controls
-                elif event.key == pygame.K_LEFTBRACKET:  self.music_mgr.volume_down()
-                elif event.key == pygame.K_RIGHTBRACKET: self.music_mgr.volume_up()
-                elif event.key == pygame.K_n:            self.music_mgr.next_track()
+                elif event.key == pygame.K_LEFTBRACKET:  
+                    if self.player: self.music_mgr.volume_down()
+                elif event.key == pygame.K_RIGHTBRACKET: 
+                    if self.player: self.music_mgr.volume_up()
+                elif event.key == pygame.K_n:            
+                    if self.player: self.music_mgr.next_track()
                 elif event.key == pygame.K_k:
-                    if self.state in (GameState.TRAVEL, GameState.SETTLEMENT):
+                    if self.player and self.state in (GameState.TRAVEL, GameState.SETTLEMENT):
                         self.mixtape_menu.update_mixtapes(self.music_mgr.mixtapes)
                         self.state = GameState.MIXTAPE_SELECT
 
@@ -706,7 +714,7 @@ class KeepDrivingEngine:
         while self.running:
             dt = min(self.clock.tick(TARGET_FPS) / 1000.0, 0.05)  # cap dt
             self._handle_input()
-            if self.state != GameState.MENU or self.player is not None:
+            if self.player is not None:
                 self._update(dt)
             self._render()
 
