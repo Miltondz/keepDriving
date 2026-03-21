@@ -5,6 +5,9 @@ A high-fidelity, retro-inspired Road Trip RPG built with **Python** and **Pygame
 ![Game Preview](assets/preview.png)
 _Driving across beautifully generated procedural biomes._
 
+![Gameplay Interface](assets/gameplay.png)
+_Retro-styled transparent dashboard showcasing inventory, radar, and real-time analog instruments._
+
 ## 🌟 Key Features
 
 ### 🛤️ Dynamic World & Highway Driving
