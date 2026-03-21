@@ -32,7 +32,7 @@ class GameRenderer:
         self.parallax.update(dt, speed, weather_state)
 
     def render(self, surface, car, car_manager, weather_state="sunny",
-               weather_sys=None, time_of_day=0.5, offset=(0, 0), traffic=None, upcoming_encounter=None):
+               weather_sys=None, time_of_day=0.5, offset=(0, 0), traffic=None, upcoming_encounter=None, render_car=True):
         ox, oy = offset
         # Day/Night factor: sin wave shifted so 0.25(6AM) to 0.75(6PM) is day
         # Center of day is 0.5 (Noon)
@@ -67,17 +67,18 @@ class GameRenderer:
             traffic.render(surface)
 
         # ── 2. Player Car ─────────────────────────────────────────────────────
-        cx = W // 2 - 56 + ox
-        cy = road_y_pos - 54
-        bounce = int(math.sin(pygame.time.get_ticks() * 0.015) * 1.5) if car.speed > 0 else 0
-        car_y = cy + bounce
+        if render_car:
+            cx = W // 2 - 56 + ox
+            cy = road_y_pos - 54
+            bounce = int(math.sin(pygame.time.get_ticks() * 0.015) * 1.5) if car.speed > 0 else 0
+            car_y = cy + bounce
 
-        if hasattr(self.parallax, "car_cache"):
-            surface.blit(self.parallax.car_cache, (cx, car_y))
-        else:
-            pygame.draw.rect(surface, (210, 195, 160), (cx, car_y, 112, 50))
-            pygame.draw.circle(surface, (20, 20, 25), (cx + 25, car_y + 50), 10)
-            pygame.draw.circle(surface, (20, 20, 25), (cx + 87, car_y + 50), 10)
+            if hasattr(self.parallax, "car_cache"):
+                surface.blit(self.parallax.car_cache, (cx, car_y))
+            else:
+                pygame.draw.rect(surface, (210, 195, 160), (cx, car_y, 112, 50))
+                pygame.draw.circle(surface, (20, 20, 25), (cx + 25, car_y + 50), 10)
+                pygame.draw.circle(surface, (20, 20, 25), (cx + 87, car_y + 50), 10)
 
         # ── 3. Night Darkness Layer with Light Holes ──────────────────────────
         if is_night:

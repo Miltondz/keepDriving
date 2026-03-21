@@ -38,7 +38,7 @@ BIOME_PALETTES = {
     },
     "highway": {
         "sky_top": (50, 60, 100), "sky_bottom": (200, 180, 160),
-        "hills": [(80, 80, 90), (60, 60, 70)],
+        "hills": [(80, 80, 90), (60, 60, 70), (40, 40, 50)],
         "field": (100, 100, 90)
     }
 }
@@ -67,10 +67,11 @@ class ParallaxBackground:
     def _load_external_assets(self):
         self.layers = []
         # Base settings for layers 1, 2 and 3
+        # Shifted Y values down by 10 pixels to cover the bottom-of-screen gap
         layer_configs = [
-            {"speed": 1.0,  "y": 111},
-            {"speed": 0.25, "y": 115},
-            {"speed": 0.05, "y": 115}
+            {"speed": 1.0,  "y": 121},
+            {"speed": 0.25, "y": 125},
+            {"speed": 0.05, "y": 125}
         ]
 
         road_dir = os.path.join(SPRITES_DIR, "road")

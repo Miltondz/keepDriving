@@ -13,8 +13,18 @@ class CarManager:
         """Update car resources."""
         if self.car.speed > 0:
             km_this_frame = (self.car.speed / 3600.0) * dt
-            fuel_consumption = km_this_frame * 0.015
+            # Base fuel consumption: 0.45 units per km (much more visible)
+            # Higher speed = higher penalty
+            speed_penalty = 1.0 + max(0, (self.car.speed - 90) / 60.0)
+            fuel_consumption = km_this_frame * 0.45 * speed_penalty
+            
             self.fuel = max(0.0, self.fuel - fuel_consumption)
+            
+            # Car condition decay at high speeds
+            if self.car.speed > 110:
+                wear = (self.car.speed - 110) * 0.0001 * dt
+                self.condition = max(0.0, self.condition - wear)
+            
             events.emit(EVENTS['FUEL_CHANGED'])
 
     def spend_fuel(self, amount):

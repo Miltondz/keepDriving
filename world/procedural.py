@@ -19,10 +19,48 @@ class WorldGenerator:
         self.seed = seed
 
     def generate_run(self, total_target_km=1500):
-        """Generate a custom TEST RUN to showcase mountain biome and frequent events."""
+        """Generate a custom TEST RUN with 3 building types near the start for easy testing."""
         route = []
 
-        # 1. Mountain road with multiple encounters (testing MOUNTAIN biome)
+        # ── TEST BUILDINGS (short segments to reach quickly) ──────────
+        # T1. Short road → Gas Station
+        route.append(RoadSegment(
+            RoadType.DESERT,
+            length_km=0.5,
+            test_encounters=[]
+        ))
+        route.append(Settlement(
+            name="Roadside Oasis",
+            size=SettlementSize.GAS_STATION,
+            services=['fuel', 'shop', 'rest']
+        ))
+
+        # T2. Short road → Small Town (Mini-Market)
+        route.append(RoadSegment(
+            RoadType.DESERT,
+            length_km=0.5,
+            test_encounters=[]
+        ))
+        route.append(Settlement(
+            name="Dusty Creek",
+            size=SettlementSize.SMALL_TOWN,
+            services=['shop', 'recruit', 'rest']
+        ))
+
+        # T3. Short road → City (Hotel)
+        route.append(RoadSegment(
+            RoadType.HIGHWAY,
+            length_km=0.5,
+            test_encounters=[]
+        ))
+        route.append(Settlement(
+            name="Las Piedras Hotel",
+            size=SettlementSize.CITY,
+            services=['rest', 'shop', 'repair', 'recruit']
+        ))
+
+        # ── MAIN RUN (mountain biome) ────────────────────────────────
+        # 1. Mountain road with multiple encounters
         route.append(RoadSegment(
             RoadType.MOUNTAIN,
             length_km=30,
@@ -32,14 +70,14 @@ class WorldGenerator:
             ]
         ))
 
-        # 2. Mountain settlement with services
+        # 2. Mountain settlement
         route.append(Settlement(
             name="Summit Ridge",
             size=SettlementSize.SMALL_TOWN,
             services=['fuel', 'repair', 'rest']
         ))
 
-        # 3. Another mountain road with more events
+        # 3. Another mountain road
         route.append(RoadSegment(
             RoadType.MOUNTAIN,
             length_km=25,
@@ -49,7 +87,7 @@ class WorldGenerator:
             ]
         ))
 
-        # 4. Small mountain gas station
+        # 4. Mountain gas station
         route.append(Settlement(
             name="Eagle's Nest",
             size=SettlementSize.GAS_STATION,

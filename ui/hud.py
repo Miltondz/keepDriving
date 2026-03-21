@@ -304,13 +304,14 @@ class HUD:
         # Speed
         spd_col = (255, 60, 60) if speed_val > 100 else (120, 255, 120)
         spd_txt = self._font_digital.render(f"{speed_val:03d}", True, spd_col)
+        # Position fixed to users previous layout
         my_surface.blit(spd_txt, (lx + lw - 50, ly + 28))
 
         # Gas percentage numeric display
         fuel_val = int(self.car_manager.fuel)
         fuel_col = (255, 100, 100) if fuel_val < 25 else (140, 200, 140)
         gas_txt = self.font_tiny.render(f"GAS: {fuel_val}%", True, fuel_col)
-        my_surface.blit(gas_txt, (lx + lw - 50, ly + 20))
+        my_surface.blit(gas_txt, (lx + lw - 50, ly + 14)) # Moved up slightly to avoid overlap with spd_txt (ly+28)
 
         # ── Dialogue overlay (Restricted to Red Boxes) ────────────────
         active_line = current_dialogue
@@ -655,8 +656,8 @@ class HUD:
         if my >= DASH_Y:
             dy = my - DASH_Y # relative Y to dashboard top
             
-            # 3. Check for LCD Box (Pause/Unpause) -> x=10..110, y=8..75 (approx)
-            if DASH_X + 10 <= mx <= DASH_X + 110 and 8 <= dy <= 75:
+            # 3. Check for LCD Box (Pause/Unpause) -> rendered at lx = DASH_X + 139, lw = 205
+            if DASH_X + 135 <= mx <= DASH_X + 345 and 10 <= dy <= 50:
                 if engine.music_mgr:
                     if engine.music_mgr.playing:
                         engine.music_mgr.pause()
@@ -665,7 +666,7 @@ class HUD:
                 return True
                 
             # Volume Knob (Top Knob on Radio) -> Center offset ~ x=126, y=25
-            if 115 <= mx <= 135 and 14 <= dy <= 36:
+            if DASH_X + 115 <= mx <= DASH_X + 140 and 14 <= dy <= 36:
                 if engine.music_mgr:
                     if dy < 25:  # Upper half
                         engine.music_mgr.volume_up()
@@ -674,12 +675,13 @@ class HUD:
                 return True
 
             # Track Knob (Bottom Knob on Radio) -> Center offset ~ x=126, y=60
-            if 115 <= mx <= 135 and 49 <= dy <= 71:
+            if DASH_X + 115 <= mx <= DASH_X + 140 and 49 <= dy <= 71:
                 if engine.music_mgr:
                     if dy < 60:  # Upper half
                         engine.music_mgr.next_track()
                     else:        # Lower half
-                        engine.music_mgr.prev_track()
+                        if hasattr(engine.music_mgr, 'previous_track'):
+                            engine.music_mgr.previous_track()
                 return True
 
             # Cassette Box in Dashboard -> Bajo ENERGY (x=245, y=53)

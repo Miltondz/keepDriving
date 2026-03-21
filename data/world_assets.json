@@ -1,0 +1,38 @@
+{
+    "vehicles": {
+        "sedan": {"weight": 3, "asset": "assets/sprites/vehicles/v_sedan.png", "width": 102},
+        "sedan_red": {"weight": 2, "asset": "assets/sprites/vehicles/v_sedan_red.png", "width": 102},
+        "taxi": {"weight": 2, "asset": "assets/sprites/vehicles/v_taxi.png", "width": 102},
+        "wagon": {"weight": 2, "asset": "assets/sprites/vehicles/v_wagon.png", "width": 102},
+        "van_green": {"weight": 1, "asset": "assets/sprites/vehicles/v_van_green.png", "width": 102},
+        "van_orange": {"weight": 1, "asset": "assets/sprites/vehicles/v_van_orange.png", "width": 102},
+        "police": {"weight": 1, "asset": "assets/sprites/vehicles/v_police.png", "width": 102},
+        "truck": {"weight": 1, "asset": "assets/sprites/vehicles/v_truck.png", "width": 161},
+        "dumptruck": {"weight": 1, "asset": "assets/sprites/vehicles/v_dumptruck.png", "width": 161},
+        "moped": {"weight": 1, "asset": "assets/sprites/vehicles/v_moped.png", "width": 49},
+        "motorhouse": {"weight": 1, "asset": "assets/sprites/vehicles/v_motorhouse.png", "width": 180}
+    },
+    "locations": {
+        "gas_station": {
+            "name": "GAS STATION",
+            "exterior": "assets/sprites/locations/gasolineria01.png",
+            "interior": "assets/sprites/locations/interior_gasolineria01.png",
+            "services": ["fuel", "shop", "rest"],
+            "prices": {"fuel": 20, "snack": 10, "rest": 5}
+        },
+        "small_town": {
+            "name": "MINI-MARKET",
+            "exterior": "assets/sprites/locations/minimarket01.png",
+            "interior": "assets/sprites/locations/interior_minimarket01.png",
+            "services": ["shop", "recruit", "rest"],
+            "prices": {"snack": 8, "drink": 5, "rest": 5}
+        },
+        "city": {
+            "name": "HOTEL & REST",
+            "exterior": "assets/sprites/locations/hotel01.png",
+            "interior": "assets/sprites/locations/interior_hotel01.png",
+            "services": ["rest", "shop", "repair", "recruit"],
+            "prices": {"rest": 40, "snack": 12, "repair": 30}
+        }
+    }
+}

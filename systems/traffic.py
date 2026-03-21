@@ -14,7 +14,7 @@ NOTA SOBRE SPRITES:
 import pygame
 import random
 import os
-from core.config import BASE_RESOLUTION, ROAD_Y, SPRITES_DIR
+from core.config import BASE_RESOLUTION, ROAD_Y, SPRITES_DIR, WORLD_DATA
 
 W, H = BASE_RESOLUTION
 PLAYER_X = W // 2 - 56
@@ -28,14 +28,11 @@ DIRECTION_ONCOMING = -1 # Vehículo se mueve hacia la izquierda (sentido contrar
 # ============================================================================
 # CONSTANTES DE VISUALIZACIÓN
 # ============================================================================
-# Ancho de renderizado de cada tipo de vehículo
-SPRITE_WIDTHS = {
-    "moped": 49,
-    "truck": 161,
-    "dumptruck": 161,
-    "motorhouse": 180,  # Casa rodante
-}
-SPRITE_WIDTH_DEFAULT = 102 # Ancho por defecto para sedan, taxi, wagon, van, police
+# SPRITE_WIDTHS y VEHICLE_WEIGHTS se extraen ahora de WORLD_DATA
+VEHICLES_CFG = WORLD_DATA.get("vehicles", {})
+
+SPRITE_WIDTHS = {k: v["width"] for k, v in VEHICLES_CFG.items()}
+SPRITE_WIDTH_DEFAULT = 102 
 
 # Posición Y base del renderizado según el carril
 LANE_Y_BASE = {
@@ -55,29 +52,11 @@ TRAFFIC_SPEED_ONCOMING_MAX = 55 # Velocidad máxima para vehículos en sentido c
 # ============================================================================
 # TIPOS DE VEHÍCULOS DISPONIBLES
 # ============================================================================
-# Tipos de vehículos que pueden aparecer en el tráfico (excluyendo el vehículo del jugador)
-# NOTA: Si el jugador usa un tipo específico, añadirlo a VEHICLE_TYPES_EXCLUDED
-VEHICLE_TYPES = [
-    "sedan", "sedan_red", "moped", "police", "truck", 
-    "taxi", "wagon", "dumptruck", "van", "van_green", "van_orange", "motorhouse"
-]
+VEHICLE_TYPES = list(VEHICLES_CFG.keys())
 VEHICLE_TYPES_EXCLUDED = ["van"] # El jugador conduce una van
 
-# Pesos de aparición (mayor = más común, menor = más raro)
-# Peso 1 = raro, peso 3 = común
-VEHICLE_WEIGHTS = {
-    "sedan": 3,        # Común - coche familiar beige
-    "sedan_red": 2,    # Medio - coche rojo
-    "taxi": 2,         # Medio - taxi amarillo
-    "wagon": 2,        # Medio - familiar
-    "van_green": 1,    # Raro - van verde
-    "van_orange": 1,   # Raro - van naranja
-    "police": 1,       # Raro - policía
-    "truck": 1,        # Raro - camión
-    "dumptruck": 1,    # Raro - camión de descarga
-    "moped": 1,        # Raro - moto pequeña
-    "motorhouse": 1,   # Raro - casa rodante
-}
+# Pesos de aparición
+VEHICLE_WEIGHTS = {k: v["weight"] for k, v in VEHICLES_CFG.items()}
 
 # Número de vehículos recientes a considerar para evitar repeticiones
 MIN_VEHICLES_BETWEEN_SAME = 3  # Mínimo de vehículos diferentes antes de repetir el mismo tipo

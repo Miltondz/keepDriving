@@ -1,21 +1,37 @@
-"""Global game configuration — High Fidelity Edition."""
 import os
+import json
 
-# Window Settings
-# We use a 16:9 ratio for a modern look, but with pixel-art density
-SCREEN_WIDTH = 1280
-SCREEN_HEIGHT = 720
-BASE_RESOLUTION = (640, 360)  # Internal render resolution (2x scaling to window)
-
-TARGET_FPS = 60
-TIME_ACCEL = 0.002  # Default speed for day/night cycle
+# Paths
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS_DIR = os.path.join(BASE_DIR, 'assets')
+SPRITES_DIR = os.path.join(ASSETS_DIR, 'sprites')
 
 # Game Constants
 MAX_FUEL = 100
 MAX_SANITY = 100
 MAX_HITCHHIKERS = 3
-MAX_PASSENGERS = 4  # Total seats in vehicle: 1 front + 3 back
-ROAD_Y = 240 # Distance from top to road surface base
+MAX_PASSENGERS = 4
+ROAD_Y = 240
+DASH_Y = 270
+TARGET_FPS = 60
+TIME_ACCEL = 0.002
+
+# Window Settings
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+BASE_RESOLUTION = (640, 360)
+
+# Load JSON Data (Vehicles and Locations Only)
+WORLD_DATA = {}
+world_data_path = os.path.join(BASE_DIR, 'data', 'world_assets.json')
+if os.path.exists(world_data_path):
+    with open(world_data_path, 'r') as f:
+        WORLD_DATA = json.load(f)
+
+# Window Settings
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+BASE_RESOLUTION = (640, 360)
 
 # Colors (RGB)
 COLORS = {

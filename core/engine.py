@@ -5,10 +5,13 @@ Main game engine — fully wired with all systems:
 """
 import pygame
 import random
+import os
+import math
+import json
 from enum import Enum, auto
 
 from core.config import (BASE_RESOLUTION, SCREEN_WIDTH, SCREEN_HEIGHT,
-                         TARGET_FPS, TIME_ACCEL, COLORS)
+                         TARGET_FPS, TIME_ACCEL, COLORS, WORLD_DATA, BASE_DIR)
 from core.events import events, EVENTS
 
 from graphics.renderer import GameRenderer
@@ -25,13 +28,65 @@ from systems.dialogue_system import DialogueSystem
 from systems.weather import WeatherSystem
 from systems.traffic import TrafficManager
 from world.map import WorldMap
-from world.locations import Settlement, RoadType
+from world.locations import Settlement, RoadType, SettlementSize
 from ui.hud import HUD
 from ui.encounter_ui import EncounterUI
 from ui.menu_screens import MenuScreen, SettingsScreen, ShopScreen
 from ui.mixtape_menu import MixtapeMenu
 
 W, H = BASE_RESOLUTION
+
+# ==============================================================================
+# BIOME_PALETTES (SISTEMA DE COLORES Y NUEVOS BIOMAS)
+# ==============================================================================
+# Si añades un NUEVO BIOMA al juego, debes:
+# 1. Crear una nueva clave aquí con su nombre (ej. "nieve").
+# 2. Asignarle "sky_top" y "sky_bottom" (colores del cielo).
+# 3. Asignarle ESACTAMENTE 3 tuplas de color a la lista "hills" (una para
+#    cada capa de montañas/fondo procedural). Esto evita caidas de 'IndexError'.
+# 4. Asignarle un color de "field" para el asfalto.
+BIOME_PALETTES = {
+    "desert": {
+        "sky_top": (100, 150, 200), "sky_bottom": (200, 180, 120),
+        "hills": [(150, 120, 80), (120, 90, 60), (90, 70, 50)],
+        "field": (100, 80, 60)
+    },
+    "forest": {
+        "sky_top": (80, 120, 180), "sky_bottom": (150, 180, 120),
+        "hills": [(80, 120, 80), (60, 100, 60), (40, 80, 40)],
+        "field": (70, 90, 70)
+    },
+    "mountain": {
+        "sky_top": (120, 140, 160), "sky_bottom": (180, 190, 200),
+        "hills": [(100, 100, 100), (80, 80, 80), (60, 60, 60)],
+        "field": (90, 90, 90)
+    },
+    "highway": {
+        "sky_top": (100, 150, 200), "sky_bottom": (180, 200, 220),
+        "hills": [(120, 120, 120), (100, 100, 100), (80, 80, 80)],
+        "field": (80, 80, 80)
+    },
+    "coastal": {
+        "sky_top": (80, 150, 200), "sky_bottom": (150, 200, 220),
+        "hills": [(100, 150, 180), (80, 120, 150), (60, 100, 120)],
+        "field": (120, 160, 180)
+    },
+    "village": {
+        "sky_top": (100, 150, 200), "sky_bottom": (180, 180, 150),
+        "hills": [(150, 130, 100), (120, 100, 70), (90, 70, 50)],
+        "field": (100, 80, 60)
+    },
+    "city": {
+        "sky_top": (80, 100, 120), "sky_bottom": (150, 150, 160),
+        "hills": [(100, 100, 110), (80, 80, 90), (60, 60, 70)],
+        "field": (70, 70, 70)
+    },
+    "snow": {
+        "sky_top": (150, 180, 200), "sky_bottom": (200, 220, 230),
+        "hills": [(200, 200, 210), (180, 180, 190), (160, 160, 170)],
+        "field": (220, 220, 230)
+    }
+}
 
 # ── Biome → road type string mapping ──────────────────────────────────────
 ROAD_BIOMES = {
@@ -125,6 +180,20 @@ class KeepDrivingEngine:
         self.enc_ui      = EncounterUI()
         self.weather     = WeatherSystem()
         self.traffic     = TrafficManager()
+        
+        # New: Settlement assets cache
+        self.settlement_surfs = {}
+        for key, data in WORLD_DATA.get("locations", {}).items():
+            try:
+                ext_path = os.path.join(BASE_DIR, data["exterior"])
+                int_path = os.path.join(BASE_DIR, data["interior"])
+                
+                ext = pygame.image.load(ext_path).convert_alpha()
+                int_ = pygame.image.load(int_path).convert_alpha()
+                # No scaling — keep original resolution as requested
+                self.settlement_surfs[key] = {"ext": ext, "int": int_}
+            except Exception as e:
+                print(f"Error loading assets for {key}: {e}")
 
         # Event wiring
         events.subscribe(EVENTS['FUEL_CHANGED'],    self.hud.update_fuel)
@@ -146,18 +215,77 @@ class KeepDrivingEngine:
 
     # ── Input ──────────────────────────────────────────────────────────────
     def _handle_input(self):
+        from core.config import DASH_Y
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if self.hud and self.hud.handle_click(
-                    (int(event.pos[0] * (W / SCREEN_WIDTH)), int(event.pos[1] * (H / SCREEN_HEIGHT))), 
-                    self
-                ):
+                # Convert screen coords to canvas coords
+                hud_pos = (int(event.pos[0] * (W / SCREEN_WIDTH)), int(event.pos[1] * (H / SCREEN_HEIGHT)))
+
+                # Settlement interior: double-click on building area
+                if self.state == GameState.SETTLEMENT and hasattr(self, '_show_interior'):
+                    if getattr(self, '_show_interior', False):
+                        # -------------------------------------------------------------
+                        # SISTEMA DE COORDENADAS: INTERIOR DINAMICO ESCALADO
+                        # -------------------------------------------------------------
+                        # La pantalla funciona con (0,0) en la esquina superior izquierda.
+                        # pad_top = 130px asegura que no choca con perfiles ni inventario.
+                        # pad_bot = 10px y pad_right = 10px son márgenes de respiro.
+                        # DASH_Y determina dónde empieza el asfalto/tablero inferior.
+                        #
+                        # Cualquier IMAGEN NUEVA se adaptará a estas fronteras proporcionales:
+                        pad_top = 130  # Espacio vertical tomado por el HUD Superior
+                        pad_bot = 10
+                        pad_right = 10
+
+                        # avail_w restringe el ancho para que oculpe maximo el 55% de la pantalla.
+                        # avail_h restringe la altura evitando que se solape en Y.
+                        avail_w = int(W * 0.55)
+                        avail_h = DASH_Y - pad_top - pad_bot
+
+                        # Recalculate interior bounds to match _render_settlement logic
+                        if self._current_settlement and self._current_settlement.size:
+                            s_type = self._current_settlement.size.value if hasattr(self._current_settlement.size, 'value') else "gas_station"
+                            if s_type in self.settlement_surfs:
+                                int_surf = self.settlement_surfs[s_type]["int"]
+                                ow, oh = int_surf.get_size()
+                                # Se usa el mínimo de escalas para "encajar y preservar la proporcion"
+                                scale = min(avail_w / float(max(1, ow)), avail_h / float(max(1, oh)))
+                                nw, nh = int(ow * scale), int(oh * scale)
+                                # 'ix, iy' son las coordenadas de impacto finales para dibujar:
+                                # ix = Empuja la imagen hasta la derecha, descontando el margen.
+                                # iy = Se posiciona debajo del top_HUD y se centra en el espacio disponible.
+                                ix = W - nw - pad_right
+                                iy = pad_top + (avail_h - nh) // 2
+                                exit_x, exit_y = ix + nw - 26, iy + 4
+                                if exit_x - 10 <= hud_pos[0] <= exit_x + 30 and exit_y - 10 <= hud_pos[1] <= exit_y + 30:
+                                    self._show_interior = False
+                                    continue
+                    else:
+                        # Double-click detection on building area
+                        import time as _time
+                        now = _time.time()
+                        last = getattr(self, '_last_click_time', 0)
+                        if now - last < 0.4:  # double-click threshold
+                            self._show_interior = True
+                        self._last_click_time = now
+
+                # 1. Try HUD interaction
+                if self.hud and self.hud.handle_click(hud_pos, self):
                     continue
+                
+                # 2. If nothing else took click, advance dialogue
+                if self.dialogue and self.dialogue.is_active():
+                    self.dialogue.advance()
 
             if event.type == pygame.KEYDOWN:
+                # Dialogue advancement with ENTER
+                if self.dialogue and self.dialogue.is_active() and event.key == pygame.K_RETURN:
+                    self.dialogue.advance()
+                    continue
+
                 if getattr(self, 'exit_confirm', False):
                     if event.key == pygame.K_y:
                         self.running = False
@@ -249,51 +377,42 @@ class KeepDrivingEngine:
                         self._resolve_encounter(chosen)
 
                 elif self.state == GameState.SETTLEMENT:
+                    s = self._current_settlement
+                    s_type = s.size.value if hasattr(s.size, 'value') else "gas_station"
+                    s_data = WORLD_DATA.get("locations", {}).get(s_type, {})
+                    services = s_data.get("services", [])
+                    prices = s_data.get("prices", {})
+
                     # L = leave settlement
                     if event.key == pygame.K_l:
                         self._leave_settlement()
                     # H = recruit hitchhiker
-                    elif event.key == pygame.K_h:
+                    elif event.key == pygame.K_h and 'recruit' in services:
                         self._recruit_hitchhiker()
-                    # R = enter shop / interaction
-                    elif event.key == pygame.K_r or event.key == pygame.K_s:
-                        self.shop_screen = ShopScreen(self._font_md, self._current_settlement.name)
-                        # Filter shop items dynamically based on settlement services
-                        filtered = []
-                        services = self._current_settlement.services
-                        
-                        all_items = self.shop_screen.items
-                        for item in all_items:
-                            name = item["name"].upper()
-                            if "REFUEL" in name and 'fuel' in services:
-                                filtered.append(item)
-                            elif "REPAIR" in name and 'repair' in services:
-                                filtered.append(item)
-                            elif "SNACK" in name and 'shop' in services:
-                                filtered.append(item)
-                            elif "LEAVE" in name:
-                                filtered.append(item)
-                        
-                        self.shop_screen.items = filtered
-                        self.state = GameState.SHOP
+                        self.sound_mgr.play("purchase")
+                    # R = Refuel
+                    elif event.key == pygame.K_r and 'fuel' in services:
+                        cost = prices.get("fuel", 20)
+                        if self.player.spend(cost):
+                            self.car_manager.refuel(100)
+                            self.sound_mgr.play("fueling")
+                    # F = Repair
+                    elif (event.key == pygame.K_f or event.key == pygame.K_r) and 'repair' in services:
+                        # (Note: using F for repair to distinguish from R refuel if both exist)
+                        cost = prices.get("repair", 30)
+                        if self.player.spend(cost):
+                            self.car_manager.condition = min(100, self.car_manager.condition + 40)
+                            self.sound_mgr.play("repair")
+                    # S = Snack / Rest
+                    elif (event.key == pygame.K_s or event.key == pygame.K_e) and ('shop' in services or 'rest' in services):
+                        cost = prices.get("snack", 10) if 'shop' in services else prices.get("rest", 15)
+                        if self.player.spend(cost):
+                            self.player.modify_sanity(30)
+                            self.sound_mgr.play("eat")
 
                 elif self.state == GameState.SHOP:
-                    choice = self.shop_screen.handle_input(event)
-                    if choice:
-                        if choice["name"] == "LEAVE":
-                            self.state = GameState.SETTLEMENT
-                        elif self.player.spend(choice["price"]):
-                            self.sound_mgr.play("purchase")
-                            if "REFUEL" in choice["name"]:
-                                self.car_manager.refuel(100)
-                                self.sound_mgr.play("fueling")
-                            elif "REPAIR" in choice["name"]:
-                                self.car_manager.condition = min(100, self.car_manager.condition + 40)
-                                self.sound_mgr.play("repair")
-                            elif "SNACK" in choice["name"]:
-                                self.player.modify_sanity(30)
-                                self.sound_mgr.play("eat")
-                            # Maybe refresh screen or play sound?
+                    # SHOP state is now largely deprecated in favor of direct SETTLEMENT interaction
+                    self.state = GameState.SETTLEMENT
 
                 elif self.state in (GameState.GAME_OVER, GameState.WIN):
                     if event.key == pygame.K_r:
@@ -302,13 +421,34 @@ class KeepDrivingEngine:
 
     # ── Update ────────────────────────────────────────────────────────────
     def _update(self, dt):
-        self.time_of_day = (self.time_of_day + dt * TIME_ACCEL) % 1.0
-        self.car_manager.update(dt) 
+        # Music always updates (even during settlement)
         self.music_mgr.update(dt)
         self.hud.update(dt)
         self.enc_ui.update(dt)
         self.weather.update(dt, self.player, self.current_biome)
-        self.traffic.update(dt, self.car.speed)
+        
+        # Stop traffic in settlements
+        if self.state != GameState.SETTLEMENT and self.state != GameState.SHOP:
+            self.traffic.update(dt, self.car.speed)
+        else:
+            # Maybe slowing down existing vehicles? 
+            # For now simply stop updating positions
+            pass
+
+        # Renderer update (Paused during settlement)
+        if self.state != GameState.SETTLEMENT:
+            self.renderer.update(dt, self.car.speed, self.weather.state)
+            # Time of day advancement (Paused during settlement)
+            self.time_of_day = (self.time_of_day + dt * TIME_ACCEL) % 1.0
+
+        # Physics + resources (Paused during settlement)
+        if self.state != GameState.SETTLEMENT:
+            self.car.update(dt)
+            self.car_manager.update(dt)
+
+            # Distance and player update
+            km_this_frame = (self.car.speed / 3600) * dt # speed in km/h, km per frame
+            self.player.update_travel(km_this_frame)
 
         if self.state == GameState.TRAVEL:
             self._maybe_trigger_conversation(dt)
@@ -322,13 +462,7 @@ class KeepDrivingEngine:
                 self.car.brake(dt)
                 self.sound_mgr.play("brake_squeal")
 
-            # Physics + resources
-            self.car.update(dt)
-            self.car_manager.update(dt)
-
-            # Distance and player update
-            km_this_frame = (self.car.speed / 3600) * dt # speed in km/h, km per frame
-            self.player.update_travel(km_this_frame)
+            # Distance and player update (already moved above)
 
             # Update biome based on distance
             d = self.player.distance_traveled
@@ -342,8 +476,7 @@ class KeepDrivingEngine:
             if self.renderer.parallax.biome != new_biome:
                 self.renderer.set_biome(new_biome)
 
-            # Renderer
-            self.renderer.update(dt, self.car.speed, self.weather.state)
+            # Renderer (already moved above)
 
             # World advancement — check for encounters
             encounter_key = self.world_map.advance_km(km_this_frame)
@@ -411,6 +544,23 @@ class KeepDrivingEngine:
         encounter = self.turn_engine.trigger(key)
         if not encounter:
             return
+
+        # Special: Redirect location encounters (rest_stop, gas_station) to Settlement system
+        if 'fuel' in encounter.tags or 'shop' in encounter.tags or 'rest' in encounter.tags:
+            # Determine appropriate architecture size for the UI
+            sz = SettlementSize.GAS_STATION
+            if key in ["small_town", "rest_stop"]:
+                sz = SettlementSize.SMALL_TOWN
+            
+            # Create a transient settlement node from encounter data
+            temp_s = Settlement(encounter.title, sz, services=encounter.tags)
+            self._enter_settlement(temp_s)
+            
+            # Clean up the pending encounter
+            self.turn_engine.current_encounter = None
+            events.emit(EVENTS['ENCOUNTER_END'])
+            return
+
         # Special: hitchhiker encounter → use HH logic if no slots
         if key == 'hitchhiker' and self.player.is_vehicle_full:
             events.emit(EVENTS['ENCOUNTER_END'])
@@ -444,7 +594,9 @@ class KeepDrivingEngine:
 
     # ── Settlement flow ───────────────────────────────────────────────────
     def _enter_settlement(self, settlement: Settlement):
+        self.car.speed = 0  # Stop car immediately
         self._current_settlement = settlement
+        self._show_interior = False  # Interior shown on double-click
         self.state = GameState.SETTLEMENT
 
     def _leave_settlement(self):
@@ -470,7 +622,7 @@ class KeepDrivingEngine:
         active_state = self.state
         
         # If we are in a menu/overlay state, we might still want to see the "world" behind
-        backdrop_states = (GameState.MENU, GameState.SETTINGS, GameState.SHOP, GameState.ENCOUNTER)
+        backdrop_states = (GameState.MENU, GameState.SETTINGS, GameState.SHOP, GameState.ENCOUNTER, GameState.SETTLEMENT)
         
         if active_state == GameState.TRAVEL or active_state in backdrop_states:
             ox, oy = (0, 0)
@@ -499,24 +651,28 @@ class KeepDrivingEngine:
                                 'dist': 0.0
                             }
 
+                # Traffic should be entirely hidden when docked at a Settlement
+                show_traffic = None if self.state == GameState.SETTLEMENT else self.traffic
+                
+                # Renderer.render draws the world (parallax, sky, road) in the background
                 self.renderer.render(
                     self.canvas, self.car, self.car_manager, 
                     self.weather.state, self.weather, self.time_of_day, (ox, oy),
-                    traffic=self.traffic,
-                    upcoming_encounter=upcoming
+                    traffic=show_traffic,
+                    upcoming_encounter=upcoming,
+                    render_car=(self.state != GameState.SETTLEMENT)
                 )
+
+            # Settlement renders BEFORE HUD so upper HUD shows on top
+            if active_state == GameState.SETTLEMENT:
+                self._render_settlement()
                 
             # The HUD must ALWAYS be drawn LAST, over the weather and night filters
             if self.hud:
                 self.hud.render(self.canvas, self.music_mgr, self.time_of_day, self.dialogue.get_current())
 
-        if active_state == GameState.SETTLEMENT:
-            self._render_settlement()
-            # Mini-prompt for shop
-            p_txt = self._font_sm.render("[S] ENTER SHOP   [L] LEAVE", True, (255, 255, 200))
-            self.canvas.blit(p_txt, (W//2 - p_txt.get_width()//2, H - 40))
-
-        elif active_state == GameState.SHOP:
+        # ── OVERLAYS & MENUS (Drawn on top of everything including HUD) ──
+        if active_state == GameState.SHOP:
             self._render_settlement()
             self.shop_screen.render(self.canvas, self.player.money)
 
@@ -654,49 +810,108 @@ class KeepDrivingEngine:
             self.canvas.blit(t, (W // 2 - t.get_width() // 2, H - 38 + i * 14))
 
     def _render_settlement(self):
+        from core.config import DASH_Y
+
         s = self._current_settlement
-        # Background
-        pygame.draw.rect(self.canvas, (30, 22, 15), (0, 0, W, H))
-        # Fake buildings
-        colors = [(80, 60, 40), (70, 55, 35), (90, 65, 45)]
-        for i, (bx, bw, bh, bc) in enumerate(
-            [(20, 40, 60, 0), (70, 30, 45, 1), (110, 50, 70, 2),
-             (220, 35, 50, 0), (260, 45, 65, 1), (150, 25, 40, 2)]
-        ):
-            by = H - 50 - bh
-            pygame.draw.rect(self.canvas, colors[bc], (bx, by, bw, bh + 50))
-            # Window
-            pygame.draw.rect(self.canvas, (220, 200, 100), (bx + 8, by + 10, 10, 10))
-        # Road
-        pygame.draw.rect(self.canvas, (50, 50, 60), (0, H - 50, W, 50))
+        s_type = s.size.value if hasattr(s.size, 'value') else "gas_station"
+        s_data = WORLD_DATA.get("locations", {}).get(s_type, {})
+        services = s_data.get("services", [])
+        prices = s_data.get("prices", {})
 
-        # Name banner
-        name_bg = pygame.Surface((W, 28))
-        name_bg.fill((20, 15, 10))
-        self.canvas.blit(name_bg, (0, 0))
-        name_t = self._font_lg.render(s.name.upper(), True, (255, 215, 70))
-        self.canvas.blit(name_t, (W // 2 - name_t.get_width() // 2, 2))
+        # Removed: clear road area — world is rendered underneath now
 
-        services = s.services
+        # ── 2. Draw Exterior — original size, left-aligned, bottom at DASH_Y
+        ext_surf = None
+        if s_type in self.settlement_surfs:
+            ext_surf = self.settlement_surfs[s_type]["ext"]
+            ey = DASH_Y - ext_surf.get_height()  # bottom-aligned
+            self.canvas.blit(ext_surf, (0, ey))   # LEFT-aligned, no centering
+
+            # Draw player van at road level
+            car_surf = getattr(self.renderer.parallax, "car_cache", None)
+            if car_surf:
+                cx = 20
+                cy = DASH_Y - car_surf.get_height() - 8
+                self.canvas.blit(car_surf, (cx, cy))
+
+        # ── 3. Interaction menu (right side of screen) ────────────────
         menu = []
-        if 'fuel'   in services: menu.append("[R] Refuel — $20")
-        if 'repair' in services: menu.append("[F] Repair Car — $30")
-        if 'recruit' in services: menu.append("[H] Recruit Hitchhiker")
-        menu.append("[L] Leave Town")
+        if 'fuel' in services:   menu.append(f"[R] REFUEL  — ${prices.get('fuel', 20)}")
+        if 'repair' in services: menu.append(f"[F] REPAIR  — ${prices.get('repair', 30)}")
+        if 'shop' in services:
+            menu.append(f"[S] SNACK   — ${prices.get('snack', 10)}")
+        if 'rest' in services:
+            menu.append(f"[S] REST    — ${prices.get('rest', 15)}")
+        if 'recruit' in services:
+            menu.append("[H] RECRUIT HITCHHIKER")
+        menu.append("[L] LEAVE TOWN")
+        menu.append("")
+        menu.append("DOUBLE-CLICK TO ENTER")
+
+        # Position menu on the right side
+        menu_w = 220
+        menu_h = len(menu) * 22 + 16
+        menu_x = W - menu_w - 10
+        menu_y = (DASH_Y - menu_h) // 2
+        mbg = pygame.Surface((menu_w, menu_h), pygame.SRCALPHA)
+        mbg.fill((10, 8, 18, 180))
+        pygame.draw.rect(mbg, (255, 215, 50, 120), mbg.get_rect(), 1)
+        self.canvas.blit(mbg, (menu_x, menu_y))
+
+        # Title inside menu box
+        title_txt = self._font_md.render(s.name.upper(), True, (255, 215, 50))
+        self.canvas.blit(title_txt, (menu_x + (menu_w - title_txt.get_width()) // 2, menu_y + 4))
 
         for i, line in enumerate(menu):
-            col = (200, 180, 230) if i < len(menu) - 1 else (255, 215, 70)
-            t = self._font_md.render(line, True, col)
-            self.canvas.blit(t, (W // 2 - t.get_width() // 2, 45 + i * 22))
+            if not line:
+                continue
+            is_leave = line.startswith("[L]")
+            is_hint = line.startswith("DOUBLE")
+            if is_hint:
+                col = (120, 120, 160)
+            elif is_leave:
+                col = (255, 100, 80)
+            else:
+                col = (230, 230, 255)
+            t = self._font_sm.render(line, True, col)
+            tx = menu_x + (menu_w - t.get_width()) // 2
+            self.canvas.blit(t, (tx, menu_y + 24 + i * 22))
 
-        # Stats
-        stats = [
-            f"Fuel {int(self.car_manager.fuel)}%  Car {int(self.car_manager.condition)}%",
-            f"Sanity {int(self.player.sanity)}%   Cash ${self.player.money}",
-        ]
-        for i, line in enumerate(stats):
-            t = self._font_sm.render(line, True, (130, 120, 150))
-            self.canvas.blit(t, (10, H - 44 + i * 14))
+        # ── 4. Interior overlay (on double-click) ──────────────────────
+        if getattr(self, '_show_interior', False) and s_type in self.settlement_surfs:
+            int_surf = self.settlement_surfs[s_type]["int"]
+            ow, oh = int_surf.get_size()
+            
+            # Scale to fit strictly between upper HUD and Dashboard
+            pad_top = 130  # Space for upper HUD
+            pad_bot = 10
+            pad_right = 10
+            avail_w = int(W * 0.55)  # Limit to 55% width
+            avail_h = DASH_Y - pad_top - pad_bot
+            
+            # Use float to prevent integer division zero errors
+            scale = min(avail_w / float(max(1, ow)), avail_h / float(max(1, oh)))
+            nw, nh = int(ow * scale), int(oh * scale)
+            scaled_int = pygame.transform.smoothscale(int_surf, (nw, nh))
+
+            # Dark overlay behind to dim the world
+            dark = pygame.Surface((W, DASH_Y), pygame.SRCALPHA)
+            dark.fill((0, 0, 0, 180))
+            self.canvas.blit(dark, (0, 0))
+
+            # Draw interior RIGHT-aligned
+            ix = W - nw - pad_right
+            iy = pad_top + (avail_h - nh) // 2
+            self.canvas.blit(scaled_int, (ix, iy))
+
+            # "X" exit button (top-right corner of interior)
+            exit_x = ix + nw - 26
+            exit_y = iy + 4
+            xbg = pygame.Surface((24, 24), pygame.SRCALPHA)
+            xbg.fill((180, 40, 40, 200))
+            self.canvas.blit(xbg, (exit_x, exit_y))
+            xt = self._font_md.render("X", True, (255, 255, 255))
+            self.canvas.blit(xt, (exit_x + 6, exit_y + 2))
 
     def _render_end(self, headline, sub, prompt):
         for y in range(H):

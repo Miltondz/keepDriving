@@ -243,8 +243,8 @@ class Player:
         """Call every tick while in TRAVEL state."""
         self.distance_traveled += km
         
-        # Base sanity drain (energy): 1 per 8 km
-        base_drain = km / 8.0
+        # Base sanity drain (mental fatigue): 1 per 0.5 km (significantly more visible)
+        base_drain = km / 0.5
         self.modify_sanity(-base_drain)
         
         # Procesar cada pasajero
