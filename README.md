@@ -77,5 +77,23 @@ _Dynamic scaling interior graphics cleanly docking at 55% of the screen width wh
     python main.py
     ```
 
+## 📝 Recent Changelog (2026-03-21)
+
+### Added
+- **Dynamic Settlement Interior System:**
+  - Double-clicking exterior buildings (gas stations, motels, etc.) perfectly renders their detailed interior.
+  - The interior rendering dynamically docks right-aligned at a maximum of `55%` of screen width, avoiding clipping with the upper inventory HUD and lower dashboard.
+  - A responsive "EXIT" boundary detects clicks scaled to the upper right edge of any internal image.
+- **Render Cleanups & Visibility Toggles:**
+  - Added a `render_car` toggle variable to the `GameRenderer` which natively hides the protagonist's van when docked at a settlement.
+  - Prevented traffic objects from spawning in the background while the state is strictly `GameState.SETTLEMENT`, creating a clean cinematic aesthetic.
+
+### Fixed
+- **Parallax Background Gaps & Crashes:**
+  - Shifted all base procedural road layers downwards by `+10 pixels` to seamlessly hide blue sky-bar anomalies leaking below textures.
+  - Resolved an `IndexError` crash in background hill rendering by ensuring the `highway` biome contains exactly 3 colors for procedural layer generation.
+- **Resolution Import Errors (Unbound Locals):**
+  - Removed rogue duplicate imports of native resolution variables inside input handlers, terminating `UnboundLocalErrors` associated with validating global `W` and `H` viewport boundaries.
+
 ---
 *Created with ❤️ for retro road-trip gaming fans.*
